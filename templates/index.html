@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event Payload Validator</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css">
+    <style>
+        .first-event {
+            color: blue; /* Change the color for the first event name */
+        }
+        .null-value {
+            background-color: yellow; /* Yellow for null value */
+        }
+        .valid-status {
+            color: green; /* Green for valid */
+        }
+        .invalid-status {
+            color: red; /* Red for invalid */
+        }
+        .empty-status {
+            color: orange; /* Orange for empty payload */
+        }
+        .not-present{
+            color: darkolivegreen;
+        }
+        .extra-key{
+            color: rgb(24, 214, 185); 
+        }
+        .type-mismatch {
+            background-color: #ffe6e6; /* Light red background for type mismatches */
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">Payload Validator</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="btn btn-primary" href="http://192.168.49.21/client_customize/sandeep/Event.php" target="_blank">Trigger Activity API</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-5">
+        <h1 class="text-center">Event/User Attribute Payload Validator</h1>
+        <form id="upload-form" method="POST" action="/upload" enctype="multipart/form-data" class="mt-4">
+            <div class="mb-3">
+                <label for="csvFile" class="form-label">Upload CSV File</label>
+                <input type="file" class="form-control" id="csvFile" name="csv_file" accept=".csv" required>
+            </div>
+            <div class="mb-3">
+                <label for="txtFile" class="form-label">Upload TXT File (Event Logs)</label>
+                <input type="file" class="form-control" id="txtFile" name="txt_file" accept=".txt" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Validate</button>
+        </form>
+        <div id="results" class="mt-5">
+            <!-- Results will be displayed here -->
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById("upload-form");
+        form.addEventListener("submit", async (event) => {
+            event.preventDefault();
+            const formData = new FormData(form);
+            const response = await fetch("/upload", {
+                method: "POST",
+                body: formData,
+            });
+            const resultsDiv = document.getElementById("results");
+            if (response.ok) {
+                const data = await response.json();
+                let html = `<table class="table table-bordered mt-4">
+                                <thead>
+                                    <tr>
+                                        <th>Event Name</th>
+                                        <th>Key</th>
+                                        <th>Value</th>
+                                        <th>Expected Type</th>
+                                        <th>Received Type</th>
+                                        <th>Validation Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>`;
+                
+                let eventNames = new Set();
+                data.forEach((result) => {
+                    let eventClass = !eventNames.has(result.eventName) ? "first-event" : "";
+                    if (!eventNames.has(result.eventName)) {
+                        eventNames.add(result.eventName);
+                    }
+                    
+                    let valueClass = result.value === null || result.value === "null" ? "null-value" : "";
+                    let typeMismatchClass = (result.expectedType && result.receivedType && 
+                                          result.expectedType !== result.receivedType) ? "type-mismatch" : "";
+                    let validationClass = "";
+                    if (result.validationStatus === "Valid") {
+                        validationClass = "valid-status";
+                    } else if (result.validationStatus === "Invalid/Wrong datatype/value") {
+                        validationClass = "invalid-status";
+                    } else if (result.validationStatus === "Payload value is Empty") {
+                        validationClass = "empty-status";
+                    } else if(result.validationStatus === "Payload not present in the log") {
+                        validationClass = "not-present";
+                    } else if(result.validationStatus === "Extra key present in the log") {
+                        validationClass = "extra-key";
+                    }
+
+                    html += `<tr>
+                                <td class="${eventClass}">${result.eventName}</td>
+                                <td>${result.key}</td>
+                                <td class="${valueClass}">${result.value || "null"}</td>
+                                <td>${result.expectedType || "null"}</td>
+                                <td class="${typeMismatchClass}">${result.receivedType || "null"}</td>
+                                <td class="${validationClass}">${result.validationStatus}</td>
+                            </tr>`;
+                });
+                html += `</tbody></table>`;
+                resultsDiv.innerHTML = html;
+            } else {
+                const errorText = await response.text();
+                resultsDiv.innerHTML = `<div class="alert alert-danger">${errorText}</div>`;
+            }
+        });
+    </script>
+</body>
+</html>
