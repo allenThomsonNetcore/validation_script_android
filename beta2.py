@@ -1,65 +1,9 @@
-from flask import Flask, request, render_template, jsonify, Response
-from flask_cors import CORS
+from flask import Flask, request, render_template, jsonify
 import csv
 import json
 import re
-from io import StringIO
 
 app = Flask(__name__)
-CORS(app)
-
-def generate_comment(validation_status):
-    if validation_status == "Extra key present in the log":
-        return "Either you have triggered a wrong (casing mismatch) eventPayload or a new eventPayload which is not present in the sheet"
-    elif validation_status == "Payload not present in the log":
-        return "Either you have missed to append the eventPayload or triggered wrong eventPayload"
-    return ""
-
-@app.route('/download_csv', methods=['POST'])
-def download_csv():
-    try:
-        # Get the validation results from the POST request
-        results = request.json
-        
-        # Create a StringIO object to write CSV data
-        si = StringIO()
-        writer = csv.writer(si)
-        
-        # Write headers
-        writer.writerow([
-            "eventName", 
-            "eventPayload", 
-            "Value", 
-            "required datatype", 
-            "received datatype", 
-            "Validation status", 
-            "Comments"
-        ])
-        
-        # Write data rows
-        for result in results:
-            writer.writerow([
-                result['eventName'],
-                result['key'],
-                result['value'] if result['value'] is not None else "null",
-                result['expectedType'] if result['expectedType'] is not None else "null",
-                result['receivedType'] if result['receivedType'] is not None else "null",
-                result['validationStatus'],
-                generate_comment(result['validationStatus'])
-            ])
-        
-        # Create the response
-        output = Response(
-            si.getvalue(),
-            mimetype='text/csv',
-            headers={
-                'Content-Disposition': 'attachment; filename=validation_report.csv'
-            }
-        )
-        return output
-        
-    except Exception as e:
-        return f"Error generating CSV: {e}", 500
 
 def get_value_type(value):
     """Determine the actual type of a value"""

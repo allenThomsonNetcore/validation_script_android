@@ -6,29 +6,17 @@
     <title>Event Payload Validator</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css">
     <style>
-        .first-event {
-            color: blue; /* Change the color for the first event name */
-        }
-        .null-value {
-            background-color: yellow; /* Yellow for null value */
-        }
-        .valid-status {
-            color: green; /* Green for valid */
-        }
-        .invalid-status {
-            color: red; /* Red for invalid */
-        }
-        .empty-status {
-            color: orange; /* Orange for empty payload */
-        }
-        .not-present{
-            color: darkolivegreen;
-        }
-        .extra-key{
-            color: rgb(24, 214, 185); 
-        }
-        .type-mismatch {
-            background-color: #ffe6e6; /* Light red background for type mismatches */
+        .first-event { color: blue; }
+        .null-value { background-color: yellow; }
+        .valid-status { color: green; }
+        .invalid-status { color: red; }
+        .empty-status { color: orange; }
+        .not-present { color: darkolivegreen; }
+        .extra-key { color: rgb(24, 214, 185); }
+        .type-mismatch { background-color: #ffe6e6; }
+        .download-section {
+            margin: 20px 0;
+            text-align: right;
         }
     </style>
 </head>
@@ -36,7 +24,7 @@
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
         <div class="container-fluid">
             <a class="navbar-brand" href="#">Payload Validator</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
@@ -62,6 +50,11 @@
             </div>
             <button type="submit" class="btn btn-primary">Validate</button>
         </form>
+        <div id="download-section" class="download-section d-none">
+            <button id="downloadCsv" class="btn btn-success">
+                <i class="bi bi-download"></i> Download CSV Report
+            </button>
+        </div>
         <div id="results" class="mt-5">
             <!-- Results will be displayed here -->
         </div>
@@ -69,6 +62,9 @@
 
     <script>
         const form = document.getElementById("upload-form");
+        let validationResults = null;
+        const downloadSection = document.getElementById("download-section");
+
         form.addEventListener("submit", async (event) => {
             event.preventDefault();
             const formData = new FormData(form);
@@ -77,20 +73,24 @@
                 body: formData,
             });
             const resultsDiv = document.getElementById("results");
+            
             if (response.ok) {
                 const data = await response.json();
+                validationResults = data;
+                downloadSection.classList.remove('d-none');
+                
                 let html = `<table class="table table-bordered mt-4">
-                                <thead>
-                                    <tr>
-                                        <th>Event Name</th>
-                                        <th>Key</th>
-                                        <th>Value</th>
-                                        <th>Expected Type</th>
-                                        <th>Received Type</th>
-                                        <th>Validation Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>`;
+                    <thead>
+                        <tr>
+                            <th>Event Name</th>
+                            <th>Key</th>
+                            <th>Value</th>
+                            <th>Expected Type</th>
+                            <th>Received Type</th>
+                            <th>Validation Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
                 
                 let eventNames = new Set();
                 data.forEach((result) => {
@@ -103,32 +103,69 @@
                     let typeMismatchClass = (result.expectedType && result.receivedType && 
                                           result.expectedType !== result.receivedType) ? "type-mismatch" : "";
                     let validationClass = "";
-                    if (result.validationStatus === "Valid") {
-                        validationClass = "valid-status";
-                    } else if (result.validationStatus === "Invalid/Wrong datatype/value") {
-                        validationClass = "invalid-status";
-                    } else if (result.validationStatus === "Payload value is Empty") {
-                        validationClass = "empty-status";
-                    } else if(result.validationStatus === "Payload not present in the log") {
-                        validationClass = "not-present";
-                    } else if(result.validationStatus === "Extra key present in the log") {
-                        validationClass = "extra-key";
+                    
+                    switch(result.validationStatus) {
+                        case "Valid":
+                            validationClass = "valid-status";
+                            break;
+                        case "Invalid/Wrong datatype/value":
+                            validationClass = "invalid-status";
+                            break;
+                        case "Payload value is Empty":
+                            validationClass = "empty-status";
+                            break;
+                        case "Payload not present in the log":
+                            validationClass = "not-present";
+                            break;
+                        case "Extra key present in the log":
+                            validationClass = "extra-key";
+                            break;
                     }
 
                     html += `<tr>
-                                <td class="${eventClass}">${result.eventName}</td>
-                                <td>${result.key}</td>
-                                <td class="${valueClass}">${result.value || "null"}</td>
-                                <td>${result.expectedType || "null"}</td>
-                                <td class="${typeMismatchClass}">${result.receivedType || "null"}</td>
-                                <td class="${validationClass}">${result.validationStatus}</td>
-                            </tr>`;
+                        <td class="${eventClass}">${result.eventName}</td>
+                        <td>${result.key}</td>
+                        <td class="${valueClass}">${result.value || "null"}</td>
+                        <td>${result.expectedType || "null"}</td>
+                        <td class="${typeMismatchClass}">${result.receivedType || "null"}</td>
+                        <td class="${validationClass}">${result.validationStatus}</td>
+                    </tr>`;
                 });
+                
                 html += `</tbody></table>`;
                 resultsDiv.innerHTML = html;
             } else {
                 const errorText = await response.text();
                 resultsDiv.innerHTML = `<div class="alert alert-danger">${errorText}</div>`;
+                downloadSection.classList.add('d-none');
+            }
+        });
+
+        document.getElementById("downloadCsv").addEventListener("click", async () => {
+            try {
+                const response = await fetch("/download_csv", {
+                    method: "POST",
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(validationResults)
+                });
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'validation_report.csv';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    a.remove();
+                } else {
+                    throw new Error('Download failed');
+                }
+            } catch (error) {
+                alert('Error downloading CSV report: ' + error.message);
             }
         });
     </script>
