@@ -128,7 +128,7 @@ def validate_value(value, expected_type, event_name=None):
     return False
 
 def normalize_key(key):
-    return key.replace(" ", "_").lower() if key else None
+    return key.lower() if key else None
 
 def get_array_field_name(key):
     # Match pattern like "items[].field_name"
