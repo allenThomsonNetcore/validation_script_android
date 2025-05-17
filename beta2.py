@@ -1,7 +1,8 @@
-from flask import Flask, request, render_template, jsonify
+from flask import Flask, request, render_template, jsonify, Response
 import csv
 import json
 import re
+import io
 
 app = Flask(__name__)
 
@@ -213,7 +214,23 @@ def upload():
         event_pattern = r"(?:Single Event|Event Payload|Web Event): (\{.*?\})(?=\s*(?:Single Event|Event Payload|Web Event):|$)"
 
         event_logs = re.findall(event_pattern, txt_content, re.DOTALL)
-        parsed_logs = [json.loads(log) for log in event_logs]
+        parsed_logs = []
+        
+        for log in event_logs:
+            try:
+                parsed_log = json.loads(log)
+                # Handle Single Event format
+                if 'eventName' in parsed_log:
+                    # If the log already has eventName, use it directly
+                    parsed_log['eventName'] = parsed_log['eventName']
+                    parsed_log['payload'] = parsed_log.get('payload', {})
+                elif 'event' in parsed_log:
+                    # Handle old Single Event format
+                    parsed_log['eventName'] = parsed_log['event']
+                    parsed_log['payload'] = parsed_log.get('data', {})
+                parsed_logs.append(parsed_log)
+            except json.JSONDecodeError:
+                continue
 
         # Map event names to payloads
         event_payload_map = {
@@ -346,6 +363,40 @@ def upload():
 
     except Exception as e:
         return f"Error processing files: {e}", 500
+
+@app.route('/filter', methods=['POST'])
+def filter_results():
+    data = request.get_json()
+    results = data.get('results', [])
+    status_filter = data.get('status', '')
+    
+    if status_filter:
+        filtered_results = [r for r in results if r['validationStatus'] == status_filter]
+    else:
+        filtered_results = results
+        
+    return jsonify(filtered_results)
+
+@app.route('/download', methods=['POST'])
+def download_results():
+    data = request.get_json()
+    results = data.get('results', [])
+    
+    # Create CSV content
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=['eventName', 'key', 'value', 'expectedType', 'receivedType', 'validationStatus'])
+    writer.writeheader()
+    writer.writerows(results)
+    
+    # Create response
+    output.seek(0)
+    return Response(
+        output,
+        mimetype='text/csv',
+        headers={
+            'Content-Disposition': 'attachment; filename=validation_results.csv'
+        }
+    )
 
 if __name__ == '__main__':
     app.run(debug=True)

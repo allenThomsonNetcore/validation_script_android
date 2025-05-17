@@ -3,9 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Event Payload Validator</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css">
+    <title>Event Validation Tool</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
+        .container { margin-top: 30px; }
+        .table-container { margin-top: 20px; }
+        .filter-container { margin: 20px 0; }
+        .hidden { display: none; }
         .first-event { color: blue; }
         .null-value { background-color: yellow; }
         .valid-status { color: green; }
@@ -18,6 +22,13 @@
             margin: 20px 0;
             text-align: right;
         }
+        /* Status color coding */
+        .status-valid { background-color: #d4edda !important; color: #155724 !important; }
+        .status-invalid { background-color: #f8d7da !important; color: #721c24 !important; }
+        .status-empty { background-color: #fff3cd !important; color: #856404 !important; }
+        .status-extra { background-color: #d1ecf1 !important; color: #0c5460 !important; }
+        .status-notpresent { background-color: #042508 !important; color: #7f7b97 !important; }
+        .status-csv { background-color: #e2e3e5 !important; color: #383d41 !important; }
     </style>
 </head>
 <body>
@@ -37,49 +48,43 @@
         </div>
     </nav>
 
-    <div class="container mt-5">
-        <h1 class="text-center">Event/User Attribute Payload Validator</h1>
-        <form id="upload-form" method="POST" action="/upload" enctype="multipart/form-data" class="mt-4">
+    <div class="container">
+        <h2>Event Validation Tool</h2>
+        
+        <form id="uploadForm" enctype="multipart/form-data">
             <div class="mb-3">
-                <label for="csvFile" class="form-label">Upload CSV File</label>
+                <label for="csvFile" class="form-label">CSV File</label>
                 <input type="file" class="form-control" id="csvFile" name="csv_file" accept=".csv" required>
             </div>
             <div class="mb-3">
-                <label for="txtFile" class="form-label">Upload TXT File (Event Logs)</label>
+                <label for="txtFile" class="form-label">TXT File</label>
                 <input type="file" class="form-control" id="txtFile" name="txt_file" accept=".txt" required>
             </div>
             <button type="submit" class="btn btn-primary">Validate</button>
         </form>
-        <div id="download-section" class="download-section d-none">
-            <button id="downloadCsv" class="btn btn-success">
-                <i class="bi bi-download"></i> Download CSV Report
-            </button>
-        </div>
-        <div id="results" class="mt-5">
-            <!-- Results will be displayed here -->
-        </div>
-    </div>
 
-    <script>
-        const form = document.getElementById("upload-form");
-        let validationResults = null;
-        const downloadSection = document.getElementById("download-section");
+        <div id="resultsContainer" class="hidden">
+            <div class="filter-container">
+                <div class="row">
+                    <div class="col-md-4">
+                        <select id="statusFilter" class="form-select">
+                            <option value="">All Statuses</option>
+                            <option value="Valid">Valid</option>
+                            <option value="Invalid/Wrong datatype/value">Invalid/Wrong datatype/value</option>
+                            <option value="Payload value is Empty">Payload value is Empty</option>
+                            <option value="Payload not present in the log">Payload not present in the log</option>
+                            <option value="Extra key present in the log">Extra key present in the log</option>
+                            <option value="Invalid CSV row">Invalid CSV row</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button id="downloadBtn" class="btn btn-success">Download Results</button>
+                    </div>
+                </div>
+            </div>
 
-        form.addEventListener("submit", async (event) => {
-            event.preventDefault();
-            const formData = new FormData(form);
-            const response = await fetch("/upload", {
-                method: "POST",
-                body: formData,
-            });
-            const resultsDiv = document.getElementById("results");
-            
-            if (response.ok) {
-                const data = await response.json();
-                validationResults = data;
-                downloadSection.classList.remove('d-none');
-                
-                let html = `<table class="table table-bordered mt-4">
+            <div class="table-container">
+                <table class="table table-striped">
                     <thead>
                         <tr>
                             <th>Event Name</th>
@@ -90,84 +95,158 @@
                             <th>Validation Status</th>
                         </tr>
                     </thead>
-                    <tbody>`;
-                
-                let eventNames = new Set();
-                data.forEach((result) => {
-                    let eventClass = !eventNames.has(result.eventName) ? "first-event" : "";
-                    if (!eventNames.has(result.eventName)) {
-                        eventNames.add(result.eventName);
-                    }
-                    
-                    let valueClass = result.value === null || result.value === "null" ? "null-value" : "";
-                    let typeMismatchClass = (result.expectedType && result.receivedType && 
-                                          result.expectedType !== result.receivedType) ? "type-mismatch" : "";
-                    let validationClass = "";
-                    
-                    switch(result.validationStatus) {
-                        case "Valid":
-                            validationClass = "valid-status";
-                            break;
-                        case "Invalid/Wrong datatype/value":
-                            validationClass = "invalid-status";
-                            break;
-                        case "Payload value is Empty":
-                            validationClass = "empty-status";
-                            break;
-                        case "Payload not present in the log":
-                            validationClass = "not-present";
-                            break;
-                        case "Extra key present in the log":
-                            validationClass = "extra-key";
-                            break;
-                    }
+                    <tbody id="resultsTable"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 
-                    html += `<tr>
-                        <td class="${eventClass}">${result.eventName}</td>
-                        <td>${result.key}</td>
-                        <td class="${valueClass}">${result.value || "null"}</td>
-                        <td>${result.expectedType || "null"}</td>
-                        <td class="${typeMismatchClass}">${result.receivedType || "null"}</td>
-                        <td class="${validationClass}">${result.validationStatus}</td>
-                    </tr>`;
+    <script>
+        let allResults = [];
+
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
                 });
                 
-                html += `</tbody></table>`;
-                resultsDiv.innerHTML = html;
-            } else {
-                const errorText = await response.text();
-                resultsDiv.innerHTML = `<div class="alert alert-danger">${errorText}</div>`;
-                downloadSection.classList.add('d-none');
+                if (!response.ok) {
+                    throw new Error('Upload failed');
+                }
+                
+                allResults = await response.json();
+                displayResults(allResults);
+                document.getElementById('resultsContainer').classList.remove('hidden');
+            } catch (error) {
+                alert('Error: ' + error.message);
             }
         });
 
-        document.getElementById("downloadCsv").addEventListener("click", async () => {
+        document.getElementById('statusFilter').addEventListener('change', async (e) => {
+            const status = e.target.value;
+            
             try {
-                const response = await fetch("/download_csv", {
-                    method: "POST",
+                const response = await fetch('/filter', {
+                    method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
+                        'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify(validationResults)
+                    body: JSON.stringify({
+                        results: allResults,
+                        status: status
+                    })
                 });
                 
-                if (response.ok) {
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'validation_report.csv';
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    a.remove();
-                } else {
+                if (!response.ok) {
+                    throw new Error('Filtering failed');
+                }
+                
+                const filteredResults = await response.json();
+                displayResults(filteredResults);
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        });
+
+        document.getElementById('downloadBtn').addEventListener('click', async () => {
+            const status = document.getElementById('statusFilter').value;
+            let resultsToDownload = allResults;
+            
+            if (status) {
+                try {
+                    const response = await fetch('/filter', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            results: allResults,
+                            status: status
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Filtering failed');
+                    }
+                    
+                    resultsToDownload = await response.json();
+                } catch (error) {
+                    alert('Error: ' + error.message);
+                    return;
+                }
+            }
+            
+            try {
+                const response = await fetch('/download', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        results: resultsToDownload
+                    })
+                });
+                
+                if (!response.ok) {
                     throw new Error('Download failed');
                 }
+                
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'validation_results.csv';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                a.remove();
             } catch (error) {
-                alert('Error downloading CSV report: ' + error.message);
+                alert('Error: ' + error.message);
             }
         });
+
+        function getStatusClass(status) {
+            switch (status) {
+                case 'Valid':
+                    return 'status-valid';
+                case 'Invalid/Wrong datatype/value':
+                    return 'status-invalid';
+                case 'Payload value is Empty':
+                    return 'status-empty';
+                case 'Extra key present in the log':
+                    return 'status-extra';
+                case 'Payload not present in the log':
+                    return 'status-notpresent';
+                case 'Invalid CSV row':
+                    return 'status-csv';
+                default:
+                    return '';
+            }
+        }
+
+        function displayResults(results) {
+            const tbody = document.getElementById('resultsTable');
+            tbody.innerHTML = '';
+            
+            results.forEach(result => {
+                const row = document.createElement('tr');
+                const statusClass = getStatusClass(result.validationStatus);
+                row.innerHTML = `
+                    <td>${result.eventName}</td>
+                    <td>${result.key}</td>
+                    <td>${result.value}</td>
+                    <td>${result.expectedType}</td>
+                    <td>${result.receivedType}</td>
+                    <td class="${statusClass}">${result.validationStatus}</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
     </script>
 </body>
 </html>
