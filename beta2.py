@@ -75,11 +75,11 @@ def normalize_key(key):
     return key.replace(" ", "_").lower() if key else None
 
 def get_array_field_name(key):
-    # Match pattern like "items[].field_name"
-    match = re.match(r"items\[\]\.(.+)", key)
+    # Match pattern like "field_name[].subfield" or "items[].field_name"
+    match = re.match(r"(.+)\[\]\.(.+)", key)
     if match:
-        return match.group(1)
-    return None
+        return match.group(1), match.group(2)
+    return None, None
 
 def validate_array_of_objects(array_payload, validations, event_name, results):
     # Extract validation rules for array items
@@ -88,10 +88,12 @@ def validate_array_of_objects(array_payload, validations, event_name, results):
     
     for validation in validations:
         key = validation['key']
-        field_name = get_array_field_name(key)
+        array_field, field_name = get_array_field_name(key)
         
-        if field_name:
-            array_validations[normalize_key(field_name)] = {
+        if array_field and field_name:
+            if array_field not in array_validations:
+                array_validations[array_field] = {}
+            array_validations[array_field][normalize_key(field_name)] = {
                 'expectedType': validation['expectedType'],
                 'originalKey': key
             }
@@ -102,54 +104,68 @@ def validate_array_of_objects(array_payload, validations, event_name, results):
     if not array_validations:
         return validations
 
-    # Validate each object in the array
-    for index, obj in enumerate(array_payload):
-        if not isinstance(obj, dict):
+    # Validate each array field
+    for array_field, field_validations in array_validations.items():
+        array_data = array_payload.get(array_field, [])
+        if not isinstance(array_data, list):
             results.append({
                 'eventName': event_name,
-                'key': f"items[{index}]",
-                'value': obj,
-                'expectedType': None,
-                'receivedType': get_value_type(obj),
-                'validationStatus': 'Invalid object in array'
+                'key': array_field,
+                'value': array_data,
+                'expectedType': 'array',
+                'receivedType': get_value_type(array_data),
+                'validationStatus': 'Invalid array field'
             })
             continue
 
-        # Check for required fields and validate them
-        for field_name, validation_info in array_validations.items():
-            expected_type = validation_info['expectedType']
-            original_key = validation_info['originalKey']
-            value = obj.get(field_name)
-
-            validation_result = validate_value(value, expected_type, event_name)
-            status = 'Valid' if validation_result and validation_result != "Null value" else \
-                    'Payload value is Empty' if validation_result == "Null value" else \
-                    'Invalid/Wrong datatype/value'
-            
-            formatted_value = get_formatted_value(value, expected_type)
-            
-            results.append({
-                'eventName': event_name,
-                'key': f"items[{index}].{field_name}",
-                'value': formatted_value,
-                'expectedType': expected_type,
-                'receivedType': get_value_type(value),
-                'validationStatus': status
-            })
-
-        # Check for unexpected fields in this object
-        for key in obj.keys():
-            normalized_key = normalize_key(key)
-            if normalized_key not in array_validations:
-                value = obj[key]
+        # Validate each object in the array
+        for index, obj in enumerate(array_data):
+            if not isinstance(obj, dict):
                 results.append({
                     'eventName': event_name,
-                    'key': f"items[{index}].{key}",
-                    'value': value,
+                    'key': f"{array_field}[{index}]",
+                    'value': obj,
                     'expectedType': None,
-                    'receivedType': get_value_type(value),
-                    'validationStatus': 'Unexpected key in array object'
+                    'receivedType': get_value_type(obj),
+                    'validationStatus': 'Invalid object in array'
                 })
+                continue
+
+            # Check for required fields and validate them
+            for field_name, validation_info in field_validations.items():
+                expected_type = validation_info['expectedType']
+                original_key = validation_info['originalKey']
+                value = obj.get(field_name)
+
+                validation_result = validate_value(value, expected_type, event_name)
+                status = 'Valid' if validation_result and validation_result != "Null value" else \
+                        'Payload value is Empty' if validation_result == "Null value" else \
+                        'Invalid/Wrong datatype/value'
+                
+                formatted_value = get_formatted_value(value, expected_type)
+                
+                results.append({
+                    'eventName': event_name,
+                    'key': f"{array_field}[{index}].{field_name}",
+                    'value': formatted_value,
+                    'expectedType': expected_type,
+                    'receivedType': get_value_type(value),
+                    'validationStatus': status
+                })
+
+            # Check for unexpected fields in this object
+            for key in obj.keys():
+                normalized_key = normalize_key(key)
+                if normalized_key not in field_validations:
+                    value = obj[key]
+                    results.append({
+                        'eventName': event_name,
+                        'key': f"{array_field}[{index}].{key}",
+                        'value': value,
+                        'expectedType': None,
+                        'receivedType': get_value_type(value),
+                        'validationStatus': 'Unexpected key in array object'
+                    })
 
     return regular_validations
 
@@ -209,11 +225,13 @@ def upload():
         for event_name, validations in event_validations.items():
             payload = event_payload_map.get(event_name, {})
 
-            if "items" in payload and isinstance(payload["items"], list):
-                regular_validations = validate_array_of_objects(payload["items"], validations, event_name, results)
+            # Check for array fields in the payload
+            array_fields = {k: v for k, v in payload.items() if isinstance(v, list)}
+            if array_fields:
+                regular_validations = validate_array_of_objects(payload, validations, event_name, results)
                 
                 # Validate regular fields (non-array fields)
-                normalized_payload = {normalize_key(k): v for k, v in payload.items() if k != "items"}
+                normalized_payload = {normalize_key(k): v for k, v in payload.items() if k not in array_fields}
                 
                 # Check for extra keys in regular fields
                 extra_keys = set(normalized_payload.keys()) - set([normalize_key(v['key']) for v in regular_validations])
