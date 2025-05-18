@@ -6,7 +6,6 @@ import io
 import logging
 from datetime import datetime
 from typing import Dict, List, Any, Optional, Tuple
-from difflib import SequenceMatcher
 
 # Configure logging
 logging.basicConfig(
@@ -217,87 +216,8 @@ def validate_required_fields(payload: Dict, validations: List[Dict]) -> List[Dic
                 'value': None,
                 'expectedType': next((v['expectedType'] for v in validations if v['key'] == field), None),
                 'receivedType': 'not present',
-                'validationStatus': 'Required field missing'
-            })
-    
-    return results
-
-def similar(a: str, b: str) -> float:
-    """Calculate similarity ratio between two strings"""
-    return SequenceMatcher(None, a.lower(), b.lower()).ratio()
-
-def find_similar_fields(expected_key: str, actual_keys: List[str], threshold: float = 0.8) -> List[str]:
-    """Find fields that are similar to the expected key"""
-    similar_fields = []
-    for actual_key in actual_keys:
-        if similar(expected_key, actual_key) >= threshold:
-            similar_fields.append(actual_key)
-    return similar_fields
-
-def validate_payload_with_similarity(payload: Dict, validations: List[Dict], event_name: str) -> List[Dict]:
-    """Validate payload with fuzzy matching for field names"""
-    results = []
-    actual_keys = list(payload.keys())
-    
-    for validation in validations:
-        expected_key = validation['key']
-        expected_type = validation['expectedType']
-        
-        # Check if the exact key exists
-        if expected_key in payload:
-            value = payload[expected_key]
-            validation_result = validate_value(value, expected_type, event_name)
-            status = 'Valid' if validation_result and validation_result != "Null value" else \
-                    'Payload value is Empty' if validation_result == "Null value" else \
-                    'Invalid/Wrong datatype/value'
-            
-            results.append({
-                'eventName': event_name,
-                'key': expected_key,
-                'value': get_formatted_value(value, expected_type),
-                'expectedType': expected_type,
-                'receivedType': get_value_type(value),
-                'validationStatus': status
-            })
-        else:
-            # Look for similar keys
-            similar_fields = find_similar_fields(expected_key, actual_keys)
-            if similar_fields:
-                # Add results for each similar field
-                for similar_field in similar_fields:
-                    value = payload[similar_field]
-                    results.append({
-                        'eventName': event_name,
-                        'key': expected_key,
-                        'value': get_formatted_value(value, expected_type),
-                        'expectedType': expected_type,
-                        'receivedType': get_value_type(value),
-                        'validationStatus': f'Similar field found: {similar_field}',
-                        'similarField': similar_field
-                    })
-            else:
-                # No similar fields found
-                results.append({
-                    'eventName': event_name,
-                    'key': expected_key,
-                    'value': None,
-                    'expectedType': expected_type,
-                    'receivedType': 'not present',
-                    'validationStatus': 'Payload not present in the log'
-                })
-    
-    # Check for extra fields
-    expected_keys = [v['key'] for v in validations]
-    for actual_key in actual_keys:
-        if actual_key not in expected_keys and not any(similar(actual_key, k) >= 0.8 for k in expected_keys):
-            value = payload[actual_key]
-            results.append({
-                'eventName': event_name,
-                'key': actual_key,
-                'value': value,
-                'expectedType': 'EXTRA',
-                'receivedType': get_value_type(value),
-                'validationStatus': 'Extra key present in the log'
+                'validationStatus': 'Required field missing',
+                'comment': 'Required field is missing in the payload'
             })
     
     return results
@@ -361,10 +281,13 @@ def upload():
         for log in event_logs:
             try:
                 parsed_log = json.loads(log)
+                # Handle Single Event format
                 if 'eventName' in parsed_log:
+                    # If the log already has eventName, use it directly
                     parsed_log['eventName'] = parsed_log['eventName']
                     parsed_log['payload'] = parsed_log.get('payload', {})
                 elif 'event' in parsed_log:
+                    # Handle old Single Event format
                     parsed_log['eventName'] = parsed_log['event']
                     parsed_log['payload'] = parsed_log.get('data', {})
                 parsed_logs.append(parsed_log)
@@ -398,9 +321,122 @@ def upload():
                         'validationStatus': error_msg
                     })
 
-            # Use the new validation function with similarity matching
-            validation_results = validate_payload_with_similarity(payload, validations, event_name)
-            results.extend(validation_results)
+            # Check for array fields in the payload
+            array_fields = {k: v for k, v in payload.items() if isinstance(v, list)}
+            if array_fields:
+                regular_validations = validate_array_of_objects(payload, validations, event_name, results)
+                
+                # Validate regular fields (non-array fields)
+                normalized_payload = {normalize_key(k): v for k, v in payload.items() if k not in array_fields}
+                
+                # Check for extra keys in regular fields
+                extra_keys = set(normalized_payload.keys()) - set([normalize_key(v['key']) for v in regular_validations])
+                for extra_key in extra_keys:
+                    value = normalized_payload.get(extra_key)
+                    results.append({
+                        'eventName': event_name,
+                        'key': extra_key,
+                        'value': value,
+                        'expectedType': 'EXTRA',
+                        'receivedType': get_value_type(value),
+                        'validationStatus': 'Extra key present in the log'
+                    })
+
+                # Validate regular fields
+                for validation in regular_validations:
+                    key = validation['key']
+                    expected_type = validation['expectedType']
+                    normalized_key = normalize_key(key)
+                    value = normalized_payload.get(normalized_key)
+
+                    if not key or not expected_type:
+                        results.append({
+                            'eventName': event_name,
+                            'key': key,
+                            'value': None,
+                            'expectedType': expected_type,
+                            'receivedType': 'unknown',
+                            'validationStatus': 'Invalid CSV row'
+                        })
+                    elif normalized_key not in normalized_payload:
+                        results.append({
+                            'eventName': event_name,
+                            'key': key,
+                            'value': None,
+                            'expectedType': expected_type,
+                            'receivedType': 'not present',
+                            'validationStatus': 'Payload not present in the log'
+                        })
+                    else:
+                        validation_result = validate_value(value, expected_type, event_name)
+                        status = 'Valid' if validation_result and validation_result != "Null value" else \
+                                'Payload value is Empty' if validation_result == "Null value" else \
+                                'Invalid/Wrong datatype/value'
+                        formatted_value = get_formatted_value(value, expected_type)
+                        results.append({
+                            'eventName': event_name,
+                            'key': key,
+                            'value': formatted_value,
+                            'expectedType': expected_type,
+                            'receivedType': get_value_type(value),
+                            'validationStatus': status
+                        })
+            else:
+                # Regular validation for non-array payloads
+                normalized_payload = {normalize_key(k): v for k, v in payload.items()}
+                extra_keys = set(normalized_payload.keys()) - set([normalize_key(v['key']) for v in validations])
+                for extra_key in extra_keys:
+                    value = normalized_payload.get(extra_key)
+                    results.append({
+                        'eventName': event_name,
+                        'key': extra_key,
+                        'value': value,
+                        'expectedType': 'EXTRA',
+                        'receivedType': get_value_type(value),
+                        'validationStatus': 'Extra key present in the log'
+                    })
+
+                for validation in validations:
+                    key = validation['key']
+                    expected_type = validation['expectedType']
+
+                    if not key or not expected_type:
+                        results.append({
+                            'eventName': event_name,
+                            'key': key,
+                            'value': None,
+                            'expectedType': expected_type,
+                            'receivedType': 'unknown',
+                            'validationStatus': 'Invalid CSV row'
+                        })
+                        continue
+
+                    normalized_key = normalize_key(key)
+                    value = normalized_payload.get(normalized_key)
+
+                    if normalized_key not in normalized_payload:
+                        results.append({
+                            'eventName': event_name,
+                            'key': key,
+                            'value': None,
+                            'expectedType': expected_type,
+                            'receivedType': 'not present',
+                            'validationStatus': 'Payload not present in the log'
+                        })
+                    else:
+                        validation_result = validate_value(value, expected_type, event_name)
+                        status = 'Valid' if validation_result and validation_result != "Null value" else \
+                                'Payload value is Empty' if validation_result == "Null value" else \
+                                'Invalid/Wrong datatype/value'
+                        formatted_value = get_formatted_value(value, expected_type)
+                        results.append({
+                            'eventName': event_name,
+                            'key': key,
+                            'value': formatted_value,
+                            'expectedType': expected_type,
+                            'receivedType': get_value_type(value),
+                            'validationStatus': status
+                        })
 
         # Log validation results
         log_validation_event('validation_complete', {
@@ -468,8 +504,25 @@ def download_results():
     
     # Create CSV content
     output = io.StringIO()
-    writer = csv.DictWriter(output, fieldnames=['eventName', 'key', 'value', 'expectedType', 'receivedType', 'validationStatus'])
+    writer = csv.DictWriter(output, fieldnames=['eventName', 'key', 'value', 'expectedType', 'receivedType', 'validationStatus', 'comment'])
     writer.writeheader()
+    
+    # Add comments to results if not present
+    for result in results:
+        if 'comment' not in result:
+            if result['validationStatus'] == 'Valid':
+                result['comment'] = 'Field validation passed'
+            elif result['validationStatus'] == 'Invalid/Wrong datatype/value':
+                result['comment'] = f"Expected type: {result['expectedType']}, Received type: {result['receivedType']}"
+            elif result['validationStatus'] == 'Payload value is Empty':
+                result['comment'] = 'Field value is empty or null'
+            elif result['validationStatus'] == 'Extra key present in the log':
+                result['comment'] = 'This field was not expected in the validation rules'
+            elif result['validationStatus'] == 'Payload not present in the log':
+                result['comment'] = 'Field is missing in the payload'
+            else:
+                result['comment'] = result['validationStatus']
+    
     writer.writerows(results)
     
     # Create response

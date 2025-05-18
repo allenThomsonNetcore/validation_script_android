@@ -45,10 +45,6 @@
         .status-extra {
             color: #17a2b8;
         }
-        .status-similar {
-            color: #6f42c1;
-            font-style: italic;
-        }
         .filter-section {
             background-color: #f8f9fa;
             padding: 15px;
@@ -121,7 +117,6 @@
                         <option value="Payload value is Empty">Empty</option>
                         <option value="Extra key present in the log">Extra</option>
                         <option value="Payload not present in the log">Not Present</option>
-                        <option value="Similar field found">Similar Field</option>
                     </select>
                 </div>
                 <div class="col-md-3 mb-3">
@@ -280,10 +275,6 @@
             
             results.forEach(result => {
                 const statusClass = getStatusClass(result.validationStatus);
-                const statusText = result.validationStatus.startsWith('Similar field found') 
-                    ? `${result.validationStatus} (Expected: ${result.key})`
-                    : result.validationStatus;
-                
                 tbody.append(`
                     <tr>
                         <td>${result.eventName}</td>
@@ -291,7 +282,8 @@
                         <td>${result.value}</td>
                         <td>${result.expectedType}</td>
                         <td>${result.receivedType}</td>
-                        <td class="validation-status ${statusClass}">${statusText}</td>
+                        <td class="validation-status ${statusClass}">${result.validationStatus}</td>
+                    
                     </tr>
                 `);
             });
@@ -302,7 +294,6 @@
             if (status === 'Invalid/Wrong datatype/value') return 'status-invalid';
             if (status === 'Payload value is Empty') return 'status-empty';
             if (status === 'Extra key present in the log') return 'status-extra';
-            if (status.startsWith('Similar field found')) return 'status-similar';
             return '';
         }
 
