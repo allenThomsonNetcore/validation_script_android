@@ -60,6 +60,52 @@
         .sort-icon {
             margin-left: 5px;
         }
+        .filter-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        .filter-content {
+            display: none;
+            position: absolute;
+            background-color: #f9f9f9;
+            min-width: 200px;
+            max-height: 300px;
+            overflow-y: auto;
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+            z-index: 1000;
+            padding: 10px;
+        }
+        .filter-content.show {
+            display: block;
+        }
+        .filter-checkbox {
+            margin: 5px 0;
+        }
+        .filter-checkbox label {
+            display: block;
+            padding: 5px;
+            cursor: pointer;
+        }
+        .filter-checkbox label:hover {
+            background-color: #f1f1f1;
+        }
+        .filter-header {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            padding: 5px;
+        }
+        .filter-header:hover {
+            background-color: #f1f1f1;
+        }
+        .filter-icon {
+            margin-left: 5px;
+        }
+        .filter-actions {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #ddd;
+        }
     </style>
 </head>
 <body>
@@ -101,43 +147,84 @@
         <div class="filter-section" id="filterSection" style="display: none;">
             <h4>Filters</h4>
             <div class="row">
-                <div class="col-md-3 mb-3">
-                    <input type="text" class="form-control" id="searchInput" placeholder="Search all fields...">
+                <div class="col-md-4 mb-3">
+                    <div class="filter-dropdown">
+                        <div class="filter-header" data-filter="eventName">
+                            Event Name <span class="filter-icon">▼</span>
+                        </div>
+                        <div class="filter-content" id="eventNameFilter">
+                            <div class="filter-checkbox">
+                                <input type="checkbox" id="eventNameSelectAll" checked>
+                                <label for="eventNameSelectAll">Select All</label>
+                            </div>
+                            <div id="eventNameOptions"></div>
+                            <div class="filter-actions">
+                                <button class="btn btn-sm btn-primary" onclick="applyFilter('eventName')">Apply</button>
+                                <button class="btn btn-sm btn-secondary" onclick="clearFilter('eventName')">Clear</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="col-md-3 mb-3">
-                    <select class="form-control" id="eventNameFilter">
-                        <option value="">All Event Names</option>
-                    </select>
+                <div class="col-md-4 mb-3">
+                    <div class="filter-dropdown">
+                        <div class="filter-header" data-filter="status">
+                            Status <span class="filter-icon">▼</span>
+                        </div>
+                        <div class="filter-content" id="statusFilter">
+                            <div class="filter-checkbox">
+                                <input type="checkbox" id="statusSelectAll" checked>
+                                <label for="statusSelectAll">Select All</label>
+                            </div>
+                            <div id="statusOptions"></div>
+                            <div class="filter-actions">
+                                <button class="btn btn-sm btn-primary" onclick="applyFilter('status')">Apply</button>
+                                <button class="btn btn-sm btn-secondary" onclick="clearFilter('status')">Clear</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="col-md-3 mb-3">
-                    <select class="form-control" id="statusFilter">
-                        <option value="">All Statuses</option>
-                        <option value="Valid">Valid</option>
-                        <option value="Invalid/Wrong datatype/value">Invalid</option>
-                        <option value="Payload value is Empty">Empty</option>
-                        <option value="Extra key present in the log">Extra</option>
-                        <option value="Payload not present in the log">Not Present</option>
-                    </select>
-                </div>
-                <div class="col-md-3 mb-3">
-                    <input type="text" class="form-control" id="dateRange" placeholder="Date Range">
+                <div class="col-md-4 mb-3">
+                    <div class="filter-dropdown">
+                        <div class="filter-header" data-filter="expectedType">
+                            Expected Type <span class="filter-icon">▼</span>
+                        </div>
+                        <div class="filter-content" id="expectedTypeFilter">
+                            <div class="filter-checkbox">
+                                <input type="checkbox" id="expectedTypeSelectAll" checked>
+                                <label for="expectedTypeSelectAll">Select All</label>
+                            </div>
+                            <div id="expectedTypeOptions"></div>
+                            <div class="filter-actions">
+                                <button class="btn btn-sm btn-primary" onclick="applyFilter('expectedType')">Apply</button>
+                                <button class="btn btn-sm btn-secondary" onclick="clearFilter('expectedType')">Clear</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="row">
-                <div class="col-md-3 mb-3">
-                    <select class="form-control" id="expectedTypeFilter">
-                        <option value="">All Expected Types</option>
-                    </select>
+                <div class="col-md-4 mb-3">
+                    <div class="filter-dropdown">
+                        <div class="filter-header" data-filter="receivedType">
+                            Received Type <span class="filter-icon">▼</span>
+                        </div>
+                        <div class="filter-content" id="receivedTypeFilter">
+                            <div class="filter-checkbox">
+                                <input type="checkbox" id="receivedTypeSelectAll" checked>
+                                <label for="receivedTypeSelectAll">Select All</label>
+                            </div>
+                            <div id="receivedTypeOptions"></div>
+                            <div class="filter-actions">
+                                <button class="btn btn-sm btn-primary" onclick="applyFilter('receivedType')">Apply</button>
+                                <button class="btn btn-sm btn-secondary" onclick="clearFilter('receivedType')">Clear</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="col-md-3 mb-3">
-                    <select class="form-control" id="receivedTypeFilter">
-                        <option value="">All Received Types</option>
-                    </select>
+                <div class="col-md-4 mb-3">
+                    <button class="btn btn-secondary" id="clearFilters">Clear All Filters</button>
                 </div>
-                <div class="col-md-3 mb-3">
-                    <button class="btn btn-secondary" id="clearFilters">Clear Filters</button>
-                </div>
-                <div class="col-md-3 mb-3">
+                <div class="col-md-4 mb-3">
                     <button class="btn btn-success" id="downloadResults">Download Results</button>
                 </div>
             </div>
@@ -167,6 +254,12 @@
     <script>
         let currentResults = [];
         let currentSort = { field: null, order: 'asc' };
+        let activeFilters = {
+            eventName: [],
+            status: [],
+            expectedType: [],
+            receivedType: []
+        };
 
         $('#dateRange').daterangepicker({
             autoUpdateInput: false,
@@ -196,6 +289,7 @@
                 processData: false,
                 contentType: false,
                 success: function(response) {
+                    console.log('Upload response:', response);
                     currentResults = response;
                     updateFilters();
                     displayResults(response);
@@ -207,51 +301,93 @@
             });
         });
 
+        // Initialize filter dropdowns
+        $(document).ready(function() {
+            $('.filter-header').click(function(e) {
+                e.stopPropagation();
+                const filterId = $(this).data('filter');
+                console.log('Clicked filter:', filterId);
+                $(`#${filterId}Filter`).toggleClass('show');
+            });
+
+            // Close filter dropdowns when clicking outside
+            $(document).click(function(e) {
+                if (!$(e.target).closest('.filter-dropdown').length) {
+                    $('.filter-content').removeClass('show');
+                }
+            });
+        });
+
         function updateFilters() {
             const eventNames = new Set();
             const expectedTypes = new Set();
             const receivedTypes = new Set();
+            const statuses = new Set();
             
             currentResults.forEach(result => {
-                eventNames.add(result.eventName);
-                expectedTypes.add(result.expectedType);
-                receivedTypes.add(result.receivedType);
+                if (result.eventName) eventNames.add(result.eventName);
+                if (result.expectedType) expectedTypes.add(result.expectedType);
+                if (result.receivedType) receivedTypes.add(result.receivedType);
+                if (result.validationStatus) statuses.add(result.validationStatus);
             });
 
-            updateSelectOptions('#eventNameFilter', eventNames);
-            updateSelectOptions('#expectedTypeFilter', expectedTypes);
-            updateSelectOptions('#receivedTypeFilter', receivedTypes);
+            console.log('Available statuses:', Array.from(statuses));
+
+            updateFilterOptions('eventName', eventNames);
+            updateFilterOptions('status', statuses);
+            updateFilterOptions('expectedType', expectedTypes);
+            updateFilterOptions('receivedType', receivedTypes);
         }
 
-        function updateSelectOptions(selectId, values) {
-            const select = $(selectId);
-            const currentValue = select.val();
-            select.empty().append('<option value="">All</option>');
-            values.forEach(value => {
+        function updateFilterOptions(filterId, values) {
+            const container = $(`#${filterId}Options`);
+            container.empty();
+            
+            console.log(`Updating ${filterId} with values:`, Array.from(values));
+            
+            Array.from(values).sort().forEach(value => {
                 if (value) {
-                    select.append(`<option value="${value}">${value}</option>`);
+                    const checkboxId = `${filterId}_${value.replace(/[^a-zA-Z0-9]/g, '_')}`;
+                    container.append(`
+                        <div class="filter-checkbox">
+                            <input type="checkbox" id="${checkboxId}" value="${value}" checked>
+                            <label for="${checkboxId}">${value}</label>
+                        </div>
+                    `);
                 }
             });
-            select.val(currentValue);
+
+            // Update select all checkbox
+            $(`#${filterId}SelectAll`).prop('checked', true);
+        }
+
+        function getSelectedValues(filterId) {
+            return $(`#${filterId}Options input:checked`).map(function() {
+                return $(this).val();
+            }).get();
+        }
+
+        function applyFilter(filterId) {
+            activeFilters[filterId] = getSelectedValues(filterId);
+            applyFilters();
+            $(`#${filterId}Filter`).removeClass('show');
+        }
+
+        function clearFilter(filterId) {
+            $(`#${filterId}Options input`).prop('checked', false);
+            $(`#${filterId}SelectAll`).prop('checked', false);
+            activeFilters[filterId] = [];
+            applyFilters();
+            $(`#${filterId}Filter`).removeClass('show');
         }
 
         function applyFilters() {
             const filters = {
-                eventName: $('#eventNameFilter').val(),
-                validationStatus: $('#statusFilter').val(),
-                expectedType: $('#expectedTypeFilter').val(),
-                receivedType: $('#receivedTypeFilter').val(),
-                search_term: $('#searchInput').val()
+                eventName: activeFilters.eventName,
+                validationStatus: activeFilters.status,
+                expectedType: activeFilters.expectedType,
+                receivedType: activeFilters.receivedType
             };
-
-            const dateRange = $('#dateRange').val();
-            if (dateRange) {
-                const [start, end] = dateRange.split(' - ');
-                filters.date_range = {
-                    start: moment(start, 'MM/DD/YYYY').toISOString(),
-                    end: moment(end, 'MM/DD/YYYY').toISOString()
-                };
-            }
 
             $.ajax({
                 url: '/filter',
@@ -265,13 +401,64 @@
                 contentType: 'application/json',
                 success: function(response) {
                     displayResults(response);
+                    window.filteredResults = response;
                 }
             });
         }
 
+        // Handle select all checkboxes
+        $('[id$="SelectAll"]').change(function() {
+            const filterId = this.id.replace('SelectAll', '');
+            $(`#${filterId}Options input`).prop('checked', $(this).prop('checked'));
+        });
+
+        // Update select all checkbox when individual checkboxes change
+        $('.filter-content').on('change', 'input[type="checkbox"]:not([id$="SelectAll"])', function() {
+            const filterId = $(this).closest('.filter-content').attr('id').replace('Filter', '');
+            const allChecked = $(`#${filterId}Options input:checked`).length === $(`#${filterId}Options input`).length;
+            $(`#${filterId}SelectAll`).prop('checked', allChecked);
+        });
+
+        $('#clearFilters').click(function() {
+            $('.filter-content input[type="checkbox"]').prop('checked', false);
+            $('[id$="SelectAll"]').prop('checked', false);
+            Object.keys(activeFilters).forEach(key => {
+                activeFilters[key] = [];
+            });
+            applyFilters();
+        });
+
+        $('#downloadResults').click(function() {
+            // Use filtered results if available, otherwise use all results
+            const resultsToDownload = window.filteredResults || currentResults;
+            
+            $.ajax({
+                url: '/download',
+                type: 'POST',
+                data: JSON.stringify({ results: resultsToDownload }),
+                contentType: 'application/json',
+                xhrFields: {
+                    responseType: 'blob'
+                },
+                success: function(blob) {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'validation_results.csv';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    a.remove();
+                }
+            });
+        });
+
         function displayResults(results) {
             const tbody = $('#resultsBody');
             tbody.empty();
+            
+            // Debug log to check results being displayed
+            console.log('Displaying results:', results);
             
             results.forEach(result => {
                 const statusClass = getStatusClass(result.validationStatus);
@@ -283,7 +470,6 @@
                         <td>${result.expectedType}</td>
                         <td>${result.receivedType}</td>
                         <td class="validation-status ${statusClass}">${result.validationStatus}</td>
-                    
                     </tr>
                 `);
             });
@@ -309,48 +495,6 @@
         });
 
         $('#eventNameFilter, #statusFilter, #expectedTypeFilter, #receivedTypeFilter').change(applyFilters);
-        $('#searchInput').on('input', debounce(applyFilters, 300));
-
-        $('#clearFilters').click(function() {
-            $('#eventNameFilter, #statusFilter, #expectedTypeFilter, #receivedTypeFilter').val('');
-            $('#searchInput').val('');
-            $('#dateRange').val('');
-            applyFilters();
-        });
-
-        $('#downloadResults').click(function() {
-            $.ajax({
-                url: '/download',
-                type: 'POST',
-                data: JSON.stringify({ results: currentResults }),
-                contentType: 'application/json',
-                xhrFields: {
-                    responseType: 'blob'
-                },
-                success: function(blob) {
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'validation_results.csv';
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    a.remove();
-                }
-            });
-        });
-
-        function debounce(func, wait) {
-            let timeout;
-            return function executedFunction(...args) {
-                const later = () => {
-                    clearTimeout(timeout);
-                    func(...args);
-                };
-                clearTimeout(timeout);
-                timeout = setTimeout(later, wait);
-            };
-        }
     </script>
 </body>
 </html>

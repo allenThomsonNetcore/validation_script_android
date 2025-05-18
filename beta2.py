@@ -467,9 +467,18 @@ def filter_results():
     # Apply filters
     filtered_results = results
     if filters:
-        for field, value in filters.items():
-            if value:
-                filtered_results = [r for r in filtered_results if str(r.get(field, '')).lower() == str(value).lower()]
+        for field, values in filters.items():
+            if values and isinstance(values, list) and len(values) > 0:
+                if field == 'search_term':
+                    filtered_results = [
+                        r for r in filtered_results 
+                        if any(search_term in str(v).lower() for v in r.values())
+                    ]
+                else:
+                    filtered_results = [
+                        r for r in filtered_results 
+                        if str(r.get(field, '')).lower() in [str(v).lower() for v in values]
+                    ]
     
     # Apply date range filter
     if date_range:
@@ -479,13 +488,6 @@ def filter_results():
             r for r in filtered_results 
             if r.get('expectedType') == 'date' and 
             start_date <= datetime.fromisoformat(r.get('value', '')) <= end_date
-        ]
-    
-    # Apply search
-    if search_term:
-        filtered_results = [
-            r for r in filtered_results 
-            if any(search_term in str(v).lower() for v in r.values())
         ]
     
     # Apply sorting

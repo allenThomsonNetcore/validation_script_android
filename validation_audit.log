@@ -1,0 +1,98 @@
+2025-05-18 21:02:18,111 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2025-05-18 21:02:18,111 - INFO - [33mPress CTRL+C to quit[0m
+2025-05-18 21:02:18,111 - INFO -  * Restarting with stat
+2025-05-18 21:02:18,259 - WARNING -  * Debugger is active!
+2025-05-18 21:02:18,266 - INFO -  * Debugger PIN: 599-052-532
+2025-05-18 21:02:43,878 - INFO - 127.0.0.1 - - [18/May/2025 21:02:43] "GET / HTTP/1.1" 200 -
+2025-05-18 21:03:07,109 - INFO - file_upload: {"csv_file": "sample.csv", "txt_file": "samplelog.txt", "timestamp": "2025-05-18T21:03:07.109738"}
+2025-05-18 21:03:07,111 - INFO - validation_complete: {"total_validations": 60, "valid_count": 28, "invalid_count": 32}
+2025-05-18 21:03:07,112 - INFO - 127.0.0.1 - - [18/May/2025 21:03:07] "POST /upload HTTP/1.1" 200 -
+2025-05-18 21:03:08,972 - INFO - 127.0.0.1 - - [18/May/2025 21:03:08] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:03:09,742 - INFO - 127.0.0.1 - - [18/May/2025 21:03:09] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:03:13,124 - INFO - 127.0.0.1 - - [18/May/2025 21:03:13] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:03:14,158 - INFO - 127.0.0.1 - - [18/May/2025 21:03:14] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:03:14,755 - INFO - 127.0.0.1 - - [18/May/2025 21:03:14] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:03:19,920 - INFO - 127.0.0.1 - - [18/May/2025 21:03:19] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:03:22,158 - INFO - 127.0.0.1 - - [18/May/2025 21:03:22] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:03:23,621 - INFO - 127.0.0.1 - - [18/May/2025 21:03:23] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:03:31,653 - INFO - file_upload: {"csv_file": "sample.csv", "txt_file": "samplelog.txt", "timestamp": "2025-05-18T21:03:31.653623"}
+2025-05-18 21:03:31,655 - INFO - validation_complete: {"total_validations": 60, "valid_count": 28, "invalid_count": 32}
+2025-05-18 21:03:31,656 - INFO - 127.0.0.1 - - [18/May/2025 21:03:31] "POST /upload HTTP/1.1" 200 -
+2025-05-18 21:03:37,179 - INFO - 127.0.0.1 - - [18/May/2025 21:03:37] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:03:39,843 - INFO - 127.0.0.1 - - [18/May/2025 21:03:39] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:03:42,590 - INFO - 127.0.0.1 - - [18/May/2025 21:03:42] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:07:28,699 - INFO - 127.0.0.1 - - [18/May/2025 21:07:28] "GET / HTTP/1.1" 200 -
+2025-05-18 21:07:38,165 - INFO - file_upload: {"csv_file": "sample.csv", "txt_file": "samplelog.txt", "timestamp": "2025-05-18T21:07:38.165156"}
+2025-05-18 21:07:38,166 - INFO - validation_complete: {"total_validations": 60, "valid_count": 28, "invalid_count": 32}
+2025-05-18 21:07:38,166 - INFO - 127.0.0.1 - - [18/May/2025 21:07:38] "POST /upload HTTP/1.1" 200 -
+2025-05-18 21:07:58,316 - INFO - 127.0.0.1 - - [18/May/2025 21:07:58] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:07:59,496 - INFO - 127.0.0.1 - - [18/May/2025 21:07:59] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:08:01,432 - INFO - 127.0.0.1 - - [18/May/2025 21:08:01] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:08:08,630 - INFO - 127.0.0.1 - - [18/May/2025 21:08:08] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:08:18,332 - INFO - 127.0.0.1 - - [18/May/2025 21:08:18] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:08:21,746 - INFO - 127.0.0.1 - - [18/May/2025 21:08:21] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:08:28,832 - INFO - 127.0.0.1 - - [18/May/2025 21:08:28] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:08:36,197 - INFO - 127.0.0.1 - - [18/May/2025 21:08:36] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:09:16,120 - INFO - 127.0.0.1 - - [18/May/2025 21:09:16] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:09:17,098 - INFO - 127.0.0.1 - - [18/May/2025 21:09:17] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:09:19,816 - INFO - 127.0.0.1 - - [18/May/2025 21:09:19] "POST /download HTTP/1.1" 200 -
+2025-05-18 21:11:44,024 - INFO - 127.0.0.1 - - [18/May/2025 21:11:44] "GET / HTTP/1.1" 200 -
+2025-05-18 21:11:52,467 - INFO - file_upload: {"csv_file": "sample.csv", "txt_file": "samplelog.txt", "timestamp": "2025-05-18T21:11:52.467894"}
+2025-05-18 21:11:52,468 - INFO - validation_complete: {"total_validations": 60, "valid_count": 28, "invalid_count": 32}
+2025-05-18 21:11:52,469 - INFO - 127.0.0.1 - - [18/May/2025 21:11:52] "POST /upload HTTP/1.1" 200 -
+2025-05-18 21:13:30,075 - INFO - 127.0.0.1 - - [18/May/2025 21:13:30] "GET / HTTP/1.1" 200 -
+2025-05-18 21:13:39,850 - INFO - file_upload: {"csv_file": "sample.csv", "txt_file": "samplelog.txt", "timestamp": "2025-05-18T21:13:39.850221"}
+2025-05-18 21:13:39,851 - INFO - validation_complete: {"total_validations": 60, "valid_count": 28, "invalid_count": 32}
+2025-05-18 21:13:39,852 - INFO - 127.0.0.1 - - [18/May/2025 21:13:39] "POST /upload HTTP/1.1" 200 -
+2025-05-18 21:15:18,083 - INFO - 127.0.0.1 - - [18/May/2025 21:15:18] "GET / HTTP/1.1" 200 -
+2025-05-18 21:15:27,402 - INFO - file_upload: {"csv_file": "sample.csv", "txt_file": "samplelog.txt", "timestamp": "2025-05-18T21:15:27.401730"}
+2025-05-18 21:15:27,403 - INFO - validation_complete: {"total_validations": 60, "valid_count": 28, "invalid_count": 32}
+2025-05-18 21:15:27,404 - INFO - 127.0.0.1 - - [18/May/2025 21:15:27] "POST /upload HTTP/1.1" 200 -
+2025-05-18 21:16:08,454 - INFO - 127.0.0.1 - - [18/May/2025 21:16:08] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:16:13,692 - INFO - 127.0.0.1 - - [18/May/2025 21:16:13] "GET / HTTP/1.1" 200 -
+2025-05-18 21:16:19,244 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2025-05-18 21:16:19,245 - INFO - [33mPress CTRL+C to quit[0m
+2025-05-18 21:16:19,245 - INFO -  * Restarting with stat
+2025-05-18 21:16:19,391 - WARNING -  * Debugger is active!
+2025-05-18 21:16:19,399 - INFO -  * Debugger PIN: 599-052-532
+2025-05-18 21:16:29,435 - INFO - file_upload: {"csv_file": "sample.csv", "txt_file": "samplelog.txt", "timestamp": "2025-05-18T21:16:29.435192"}
+2025-05-18 21:16:29,436 - INFO - validation_complete: {"total_validations": 60, "valid_count": 28, "invalid_count": 32}
+2025-05-18 21:16:29,437 - INFO - 127.0.0.1 - - [18/May/2025 21:16:29] "POST /upload HTTP/1.1" 200 -
+2025-05-18 21:16:58,425 - INFO - 127.0.0.1 - - [18/May/2025 21:16:58] "GET / HTTP/1.1" 200 -
+2025-05-18 21:17:05,735 - INFO - file_upload: {"csv_file": "sample.csv", "txt_file": "samplelog.txt", "timestamp": "2025-05-18T21:17:05.735205"}
+2025-05-18 21:17:05,737 - INFO - validation_complete: {"total_validations": 60, "valid_count": 28, "invalid_count": 32}
+2025-05-18 21:17:05,737 - INFO - 127.0.0.1 - - [18/May/2025 21:17:05] "POST /upload HTTP/1.1" 200 -
+2025-05-18 21:18:16,249 - INFO -  * Detected change in '/Users/allen.thomson/Desktop/kafka/automation/validation_script/beta2.py', reloading
+2025-05-18 21:18:16,291 - INFO -  * Restarting with stat
+2025-05-18 21:18:16,575 - WARNING -  * Debugger is active!
+2025-05-18 21:18:16,581 - INFO -  * Debugger PIN: 599-052-532
+2025-05-18 21:18:17,218 - INFO - 127.0.0.1 - - [18/May/2025 21:18:17] "GET / HTTP/1.1" 200 -
+2025-05-18 21:18:25,637 - INFO - file_upload: {"csv_file": "sample.csv", "txt_file": "samplelog.txt", "timestamp": "2025-05-18T21:18:25.637627"}
+2025-05-18 21:18:25,639 - INFO - validation_complete: {"total_validations": 60, "valid_count": 28, "invalid_count": 32}
+2025-05-18 21:18:25,640 - INFO - 127.0.0.1 - - [18/May/2025 21:18:25] "POST /upload HTTP/1.1" 200 -
+2025-05-18 21:18:38,053 - INFO - 127.0.0.1 - - [18/May/2025 21:18:38] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:18:39,935 - INFO - 127.0.0.1 - - [18/May/2025 21:18:39] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:18:41,284 - INFO - 127.0.0.1 - - [18/May/2025 21:18:41] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:18:42,399 - INFO - 127.0.0.1 - - [18/May/2025 21:18:42] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:18:44,864 - INFO - 127.0.0.1 - - [18/May/2025 21:18:44] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:18:49,796 - INFO - 127.0.0.1 - - [18/May/2025 21:18:49] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:18:50,562 - INFO - 127.0.0.1 - - [18/May/2025 21:18:50] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:18:57,080 - INFO - 127.0.0.1 - - [18/May/2025 21:18:57] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:18:58,183 - INFO - 127.0.0.1 - - [18/May/2025 21:18:58] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:19:00,030 - INFO - 127.0.0.1 - - [18/May/2025 21:19:00] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:19:06,016 - INFO - 127.0.0.1 - - [18/May/2025 21:19:06] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:19:07,781 - INFO - 127.0.0.1 - - [18/May/2025 21:19:07] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:19:21,015 - INFO - 127.0.0.1 - - [18/May/2025 21:19:21] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:19:22,699 - INFO - 127.0.0.1 - - [18/May/2025 21:19:22] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:19:23,933 - INFO - 127.0.0.1 - - [18/May/2025 21:19:23] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:19:27,698 - INFO - 127.0.0.1 - - [18/May/2025 21:19:27] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:19:34,416 - INFO - 127.0.0.1 - - [18/May/2025 21:19:34] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:19:36,465 - INFO - 127.0.0.1 - - [18/May/2025 21:19:36] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:19:38,018 - INFO - 127.0.0.1 - - [18/May/2025 21:19:38] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:19:39,483 - INFO - 127.0.0.1 - - [18/May/2025 21:19:39] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:19:39,967 - INFO - 127.0.0.1 - - [18/May/2025 21:19:39] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:19:41,314 - INFO - 127.0.0.1 - - [18/May/2025 21:19:41] "POST /filter HTTP/1.1" 200 -
+2025-05-18 21:19:44,149 - INFO - 127.0.0.1 - - [18/May/2025 21:19:44] "POST /download HTTP/1.1" 200 -
+2025-05-18 21:20:29,016 - INFO - 127.0.0.1 - - [18/May/2025 21:20:29] "POST /download HTTP/1.1" 200 -
