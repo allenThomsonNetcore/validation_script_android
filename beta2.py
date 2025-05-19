@@ -18,6 +18,9 @@ logging.basicConfig(
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
+# Enable debug mode
+app.debug = True
+
 def log_validation_event(event_type: str, details: Dict):
     """Log validation events for audit purposes"""
     logging.info(f"{event_type}: {json.dumps(details)}")
@@ -230,6 +233,7 @@ def index():
 
 @app.route('/upload', methods=['POST'])
 def upload():
+    app.logger.info('Upload endpoint called')
     if 'csv_file' not in request.files or 'txt_file' not in request.files:
         return "Both CSV and TXT files are required", 400
 
@@ -456,88 +460,113 @@ def upload():
         })
         return f"Error processing files: {e}", 500
 
-@app.route('/filter', methods=['POST'])
+@app.route('/filter', methods=['POST', 'OPTIONS'])
 def filter_results():
-    data = request.get_json()
-    results = data.get('results', [])
-    filters = data.get('filters', {})
-    sort_by = data.get('sort_by')
-    sort_order = data.get('sort_order', 'asc')
-    date_range = data.get('date_range', {})
-    search_term = data.get('search_term', '').lower()
-    
-    # Apply filters
-    filtered_results = results
-    if filters:
-        for field, values in filters.items():
-            if values and isinstance(values, list) and len(values) > 0:
-                if field == 'search_term':
-                    filtered_results = [
-                        r for r in filtered_results 
-                        if any(search_term in str(v).lower() for v in r.values())
-                    ]
-                else:
-                    filtered_results = [
-                        r for r in filtered_results 
-                        if str(r.get(field, '')).lower() in [str(v).lower() for v in values]
-                    ]
-    
-    # Apply date range filter
-    if date_range:
-        start_date = datetime.fromisoformat(date_range.get('start', ''))
-        end_date = datetime.fromisoformat(date_range.get('end', ''))
-        filtered_results = [
-            r for r in filtered_results 
-            if r.get('expectedType') == 'date' and 
-            start_date <= datetime.fromisoformat(r.get('value', '')) <= end_date
-        ]
-    
-    # Apply sorting
-    if sort_by:
-        filtered_results.sort(
-            key=lambda x: str(x.get(sort_by, '')).lower(),
-            reverse=(sort_order == 'desc')
-        )
-    
-    return jsonify(filtered_results)
+    app.logger.info('Filter endpoint called')
+    if request.method == 'OPTIONS':
+        return '', 200
+        
+    try:
+        data = request.get_json()
+        app.logger.info(f'Filter data received: {data}')
+        
+        results = data.get('results', [])
+        filters = data.get('filters', {})
+        sort_by = data.get('sort_by')
+        sort_order = data.get('sort_order', 'asc')
+        date_range = data.get('date_range', {})
+        search_term = data.get('search_term', '').lower()
+        
+        # Apply filters
+        filtered_results = results
+        if filters:
+            for field, values in filters.items():
+                if values and isinstance(values, list) and len(values) > 0:
+                    if field == 'search_term':
+                        filtered_results = [
+                            r for r in filtered_results 
+                            if any(search_term in str(v).lower() for v in r.values())
+                        ]
+                    else:
+                        filtered_results = [
+                            r for r in filtered_results 
+                            if str(r.get(field, '')).lower() in [str(v).lower() for v in values]
+                        ]
+        
+        # Apply date range filter
+        if date_range:
+            start_date = datetime.fromisoformat(date_range.get('start', ''))
+            end_date = datetime.fromisoformat(date_range.get('end', ''))
+            filtered_results = [
+                r for r in filtered_results 
+                if r.get('expectedType') == 'date' and 
+                start_date <= datetime.fromisoformat(r.get('value', '')) <= end_date
+            ]
+        
+        # Apply sorting
+        if sort_by:
+            filtered_results.sort(
+                key=lambda x: str(x.get(sort_by, '')).lower(),
+                reverse=(sort_order == 'desc')
+            )
+        
+        app.logger.info(f'Filtered results count: {len(filtered_results)}')
+        return jsonify(filtered_results)
+    except Exception as e:
+        app.logger.error(f'Error in filter endpoint: {str(e)}')
+        return jsonify({'error': str(e)}), 500
 
-@app.route('/download', methods=['POST'])
+@app.route('/download', methods=['POST', 'OPTIONS'])
 def download_results():
-    data = request.get_json()
-    results = data.get('results', [])
-    
-    # Create CSV content
-    output = io.StringIO()
-    writer = csv.DictWriter(output, fieldnames=['eventName', 'key', 'value', 'expectedType', 'receivedType', 'validationStatus', 'comment'])
-    writer.writeheader()
-    
-    # Add comments to results if not present
-    for result in results:
-        if 'comment' not in result:
-            if result['validationStatus'] == 'Valid':
-                result['comment'] = 'Field validation passed'
-            elif result['validationStatus'] == 'Invalid/Wrong datatype/value':
-                result['comment'] = f"Expected type: {result['expectedType']}, Received type: {result['receivedType']}"
-            elif result['validationStatus'] == 'Payload value is Empty':
-                result['comment'] = 'Field value is empty or null'
-            elif result['validationStatus'] == 'Extra key present in the log':
-                result['comment'] = 'This field was not expected in the validation rules'
-            elif result['validationStatus'] == 'Payload not present in the log':
-                result['comment'] = 'Field is missing in the payload'
-            else:
-                result['comment'] = result['validationStatus']
-    
-    writer.writerows(results)
-    
-    # Create response
-    output.seek(0)
-    return Response(
-        output,
-        mimetype='text/csv',
-        headers={
-            'Content-Disposition': 'attachment; filename=validation_results.csv'
-        }
-    )
+    app.logger.info('Download endpoint called')
+    if request.method == 'OPTIONS':
+        return '', 200
+        
+    try:
+        data = request.get_json()
+        app.logger.info('Download data received')
+        
+        results = data.get('results', [])
+        
+        # Create CSV content
+        output = io.StringIO()
+        writer = csv.DictWriter(output, fieldnames=['eventName', 'key', 'value', 'expectedType', 'receivedType', 'validationStatus', 'comment'])
+        writer.writeheader()
+        
+        # Add comments to results if not present
+        for result in results:
+            if 'comment' not in result:
+                if result['validationStatus'] == 'Valid':
+                    result['comment'] = 'Field validation passed'
+                elif result['validationStatus'] == 'Invalid/Wrong datatype/value':
+                    result['comment'] = f"Expected type: {result['expectedType']}, Received type: {result['receivedType']}"
+                elif result['validationStatus'] == 'Payload value is Empty':
+                    result['comment'] = 'Field value is empty or null'
+                elif result['validationStatus'] == 'Extra key present in the log':
+                    result['comment'] = 'This field was not expected in the validation rules'
+                elif result['validationStatus'] == 'Payload not present in the log':
+                    result['comment'] = 'Field is missing in the payload'
+                else:
+                    result['comment'] = result['validationStatus']
+        
+        writer.writerows(results)
+        
+        # Create response
+        output.seek(0)
+        app.logger.info('CSV file generated successfully')
+        return Response(
+            output,
+            mimetype='text/csv',
+            headers={
+                'Content-Disposition': 'attachment; filename=validation_results.csv',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type'
+            }
+        )
+    except Exception as e:
+        app.logger.error(f'Error in download endpoint: {str(e)}')
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=10000, debug=True)
