@@ -5,7 +5,7 @@ import re
 import io
 import logging
 from datetime import datetime
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Tuple
 
 # Configure logging
 logging.basicConfig(
