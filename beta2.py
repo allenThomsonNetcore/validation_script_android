@@ -21,6 +21,17 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 # Enable debug mode
 app.debug = True
 
+@app.before_request
+def log_request_info():
+    app.logger.info('Headers: %s', request.headers)
+    app.logger.info('Body: %s', request.get_data())
+    app.logger.info('URL: %s', request.url)
+
+@app.after_request
+def after_request(response):
+    app.logger.info('Response: %s', response.get_data())
+    return response
+
 def log_validation_event(event_type: str, details: Dict):
     """Log validation events for audit purposes"""
     logging.info(f"{event_type}: {json.dumps(details)}")
@@ -235,9 +246,12 @@ def health_check():
 def index():
     return render_template('index.html')
 
-@app.route('/api/upload', methods=['POST'])
+@app.route('/upload', methods=['POST', 'OPTIONS'])
 def upload():
     app.logger.info('Upload endpoint called')
+    if request.method == 'OPTIONS':
+        return '', 200
+        
     if 'csv_file' not in request.files or 'txt_file' not in request.files:
         return "Both CSV and TXT files are required", 400
 
@@ -464,7 +478,7 @@ def upload():
         })
         return f"Error processing files: {e}", 500
 
-@app.route('/api/filter', methods=['POST', 'OPTIONS'])
+@app.route('/filter', methods=['POST', 'OPTIONS'])
 def filter_results():
     app.logger.info('Filter endpoint called')
     if request.method == 'OPTIONS':
@@ -520,7 +534,7 @@ def filter_results():
         app.logger.error(f'Error in filter endpoint: {str(e)}')
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/download', methods=['POST', 'OPTIONS'])
+@app.route('/download', methods=['POST', 'OPTIONS'])
 def download_results():
     app.logger.info('Download endpoint called')
     if request.method == 'OPTIONS':

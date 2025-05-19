@@ -283,7 +283,7 @@
             const formData = new FormData(this);
             
             $.ajax({
-                url: '/api/upload',
+                url: '/upload',
                 type: 'POST',
                 data: formData,
                 processData: false,
@@ -296,7 +296,8 @@
                     $('#filterSection').show();
                 },
                 error: function(xhr) {
-                    alert('Error: ' + xhr.responseText);
+                    console.error('Upload error:', xhr);
+                    alert('Error uploading files: ' + xhr.responseText);
                 }
             });
         });
@@ -390,7 +391,7 @@
             };
 
             $.ajax({
-                url: '/api/filter',
+                url: '/filter',
                 type: 'POST',
                 data: JSON.stringify({
                     results: currentResults,
@@ -437,7 +438,7 @@
             const resultsToDownload = window.filteredResults || currentResults;
             
             $.ajax({
-                url: '/api/download',
+                url: '/download',
                 type: 'POST',
                 data: JSON.stringify({ results: resultsToDownload }),
                 contentType: 'application/json',
