@@ -1,4 +1,5 @@
 from flask import Flask, request, render_template, jsonify, Response
+from flask_cors import CORS
 import csv
 import json
 import re
@@ -15,6 +16,7 @@ logging.basicConfig(
 )
 
 app = Flask(__name__)
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 def log_validation_event(event_type: str, details: Dict):
     """Log validation events for audit purposes"""
