@@ -1,10 +1,11 @@
-from flask import Flask, request, render_template, jsonify, Response
+from flask import Flask, request, render_template, jsonify, Response, send_from_directory
 from flask_cors import CORS
 import csv
 import json
 import re
 import io
 import logging
+import os
 from datetime import datetime
 from typing import Dict, List, Tuple
 
@@ -15,7 +16,7 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static', template_folder='templates')
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Enable debug mode
@@ -31,6 +32,16 @@ def log_request_info():
 def after_request(response):
     app.logger.info('Response: %s', response.get_data())
     return response
+
+@app.errorhandler(404)
+def not_found_error(error):
+    app.logger.error('Page not found: %s', request.url)
+    return jsonify({'error': 'Not found', 'url': request.url}), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    app.logger.error('Server Error: %s', error)
+    return jsonify({'error': 'Internal server error'}), 500
 
 def log_validation_event(event_type: str, details: Dict):
     """Log validation events for audit purposes"""
@@ -246,6 +257,10 @@ def health_check():
 def index():
     return render_template('index.html')
 
+@app.route('/static/<path:path>')
+def send_static(path):
+    return send_from_directory('static', path)
+
 @app.route('/upload', methods=['POST', 'OPTIONS'])
 def upload():
     app.logger.info('Upload endpoint called')
@@ -253,23 +268,18 @@ def upload():
         return '', 200
         
     if 'csv_file' not in request.files or 'txt_file' not in request.files:
-        return "Both CSV and TXT files are required", 400
-
-    csv_file = request.files['csv_file']
-    txt_file = request.files['txt_file']
-
-    if csv_file.filename == '' or txt_file.filename == '':
-        return "Both files must be selected", 400
+        return jsonify({"error": "Both CSV and TXT files are required"}), 400
 
     try:
         # Log file upload
         log_validation_event('file_upload', {
-            'csv_file': csv_file.filename,
-            'txt_file': txt_file.filename,
+            'csv_file': request.files['csv_file'].filename,
+            'txt_file': request.files['txt_file'].filename,
             'timestamp': datetime.now().isoformat()
         })
 
         # Parse the CSV file
+        csv_file = request.files['csv_file']
         csv_file.stream.seek(0)
         csv_reader = csv.DictReader(csv_file.stream.read().decode('utf-8').splitlines())
         
@@ -295,6 +305,7 @@ def upload():
                 event_validations[current_event].append(validation)
 
         # Parse the TXT file
+        txt_file = request.files['txt_file']
         txt_file.stream.seek(0)
         txt_content = txt_file.stream.read().decode('utf-8')
         event_pattern = r"(?:Single Event|Event Payload|Web Event): (\{.*?\})(?=\s*(?:Single Event|Event Payload|Web Event):|$)"
@@ -472,11 +483,8 @@ def upload():
         return jsonify(results)
 
     except Exception as e:
-        log_validation_event('error', {
-            'error': str(e),
-            'timestamp': datetime.now().isoformat()
-        })
-        return f"Error processing files: {e}", 500
+        app.logger.error(f'Error processing files: {str(e)}')
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/filter', methods=['POST', 'OPTIONS'])
 def filter_results():
