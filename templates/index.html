@@ -283,7 +283,7 @@
             const formData = new FormData(this);
             
             $.ajax({
-                url: '/upload',
+                url: '/api/upload',
                 type: 'POST',
                 data: formData,
                 processData: false,
@@ -390,7 +390,7 @@
             };
 
             $.ajax({
-                url: '/filter',
+                url: '/api/filter',
                 type: 'POST',
                 data: JSON.stringify({
                     results: currentResults,
@@ -402,6 +402,10 @@
                 success: function(response) {
                     displayResults(response);
                     window.filteredResults = response;
+                },
+                error: function(xhr) {
+                    console.error('Filter error:', xhr);
+                    alert('Error applying filters: ' + xhr.responseText);
                 }
             });
         }
@@ -433,7 +437,7 @@
             const resultsToDownload = window.filteredResults || currentResults;
             
             $.ajax({
-                url: '/download',
+                url: '/api/download',
                 type: 'POST',
                 data: JSON.stringify({ results: resultsToDownload }),
                 contentType: 'application/json',
@@ -449,6 +453,10 @@
                     a.click();
                     window.URL.revokeObjectURL(url);
                     a.remove();
+                },
+                error: function(xhr) {
+                    console.error('Download error:', xhr);
+                    alert('Error downloading results: ' + xhr.responseText);
                 }
             });
         });

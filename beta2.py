@@ -227,11 +227,15 @@ def validate_required_fields(payload: Dict, validations: List[Dict]) -> List[Dic
     
     return results
 
+@app.route('/health')
+def health_check():
+    return jsonify({"status": "healthy"}), 200
+
 @app.route('/')
 def index():
     return render_template('index.html')
 
-@app.route('/upload', methods=['POST'])
+@app.route('/api/upload', methods=['POST'])
 def upload():
     app.logger.info('Upload endpoint called')
     if 'csv_file' not in request.files or 'txt_file' not in request.files:
@@ -460,7 +464,7 @@ def upload():
         })
         return f"Error processing files: {e}", 500
 
-@app.route('/filter', methods=['POST', 'OPTIONS'])
+@app.route('/api/filter', methods=['POST', 'OPTIONS'])
 def filter_results():
     app.logger.info('Filter endpoint called')
     if request.method == 'OPTIONS':
@@ -516,7 +520,7 @@ def filter_results():
         app.logger.error(f'Error in filter endpoint: {str(e)}')
         return jsonify({'error': str(e)}), 500
 
-@app.route('/download', methods=['POST', 'OPTIONS'])
+@app.route('/api/download', methods=['POST', 'OPTIONS'])
 def download_results():
     app.logger.info('Download endpoint called')
     if request.method == 'OPTIONS':
