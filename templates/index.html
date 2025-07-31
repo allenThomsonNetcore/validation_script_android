@@ -145,6 +145,42 @@
         </div>
 
         <div class="filter-section" id="filterSection" style="display: none;">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Event Summary</h5>
+                            <div class="row">
+                                <div class="col-6">
+                                    <p class="mb-1"><strong>CSV Events:</strong></p>
+                                    <p class="text-primary" id="csvEventsCount">0</p>
+                                </div>
+                                <div class="col-6">
+                                    <p class="mb-1"><strong>Log Events:</strong></p>
+                                    <p class="text-success" id="logEventsCount">0</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Event Details</h5>
+                            <div class="row">
+                                <div class="col-6">
+                                    <p class="mb-1"><strong>Missing Events:</strong></p>
+                                    <p class="text-warning" id="missingEventsCount">0</p>
+                                </div>
+                                <div class="col-6">
+                                    <p class="mb-1"><strong>Extra Events:</strong></p>
+                                    <p class="text-info" id="extraEventsCount">0</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
             <h4>Filters</h4>
             <div class="row">
                 <div class="col-md-4 mb-3">
@@ -253,6 +289,7 @@
     <script src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
     <script>
         let currentResults = [];
+        let currentSummary = {};
         let currentSort = { field: null, order: 'asc' };
         let activeFilters = {
             eventName: [],
@@ -290,9 +327,26 @@
                 contentType: false,
                 success: function(response) {
                     console.log('Upload response:', response);
-                    currentResults = response;
+                    
+                    // Handle both old and new response formats
+                    if (response.results && response.summary) {
+                        // New format with summary
+                        currentResults = response.results;
+                        currentSummary = response.summary;
+                    } else {
+                        // Old format - just results array
+                        currentResults = response;
+                        currentSummary = {
+                            csv_events_count: 0,
+                            log_events_count: 0,
+                            csv_events: [],
+                            log_events: []
+                        };
+                    }
+                    
+                    updateEventSummary();
                     updateFilters();
-                    displayResults(response);
+                    displayResults(currentResults);
                     $('#filterSection').show();
                 },
                 error: function(xhr) {
@@ -318,6 +372,22 @@
                 }
             });
         });
+
+        function updateEventSummary() {
+            // Update event count displays
+            $('#csvEventsCount').text(currentSummary.csv_events_count || 0);
+            $('#logEventsCount').text(currentSummary.log_events_count || 0);
+            
+            // Calculate missing and extra events
+            const csvEvents = new Set(currentSummary.csv_events || []);
+            const logEvents = new Set(currentSummary.log_events || []);
+            
+            const missingEvents = csvEvents.size - new Set([...csvEvents].filter(x => logEvents.has(x))).size;
+            const extraEvents = logEvents.size - new Set([...logEvents].filter(x => csvEvents.has(x))).size;
+            
+            $('#missingEventsCount').text(missingEvents);
+            $('#extraEventsCount').text(extraEvents);
+        }
 
         function updateFilters() {
             const eventNames = new Set();

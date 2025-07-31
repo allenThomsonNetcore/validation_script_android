@@ -339,6 +339,21 @@ def upload():
         for event_name, validations in event_validations.items():
             payload = event_payload_map.get(event_name, {})
             
+            # Check if event name is present in the logs
+            if event_name not in event_payload_map:
+                # Event name from CSV is not present in the logs
+                results.append({
+                    'eventName': event_name,
+                    'key': 'EVENT_NAME',
+                    'value': event_name,
+                    'expectedType': 'event',
+                    'receivedType': 'not present in logs',
+                    'validationStatus': 'Event name not present in the logs',
+                    'comment': f'Event "{event_name}" from CSV was not found in the uploaded log file'
+                })
+                # Skip further validation for this event since it's not in the logs
+                continue
+            
             # Check required fields first
             required_results = validate_required_fields(payload, validations)
             results.extend(required_results)
@@ -473,14 +488,31 @@ def upload():
                             'validationStatus': status
                         })
 
+        # Calculate event counts
+        csv_events = set(event_validations.keys())
+        log_events = set(event_payload_map.keys())
+        
         # Log validation results
         log_validation_event('validation_complete', {
             'total_validations': len(results),
             'valid_count': sum(1 for r in results if r['validationStatus'] == 'Valid'),
-            'invalid_count': sum(1 for r in results if r['validationStatus'] != 'Valid')
+            'invalid_count': sum(1 for r in results if r['validationStatus'] != 'Valid'),
+            'csv_events_count': len(csv_events),
+            'log_events_count': len(log_events)
         })
 
-        return jsonify(results)
+        # Return results with event count information
+        response_data = {
+            'results': results,
+            'summary': {
+                'csv_events_count': len(csv_events),
+                'log_events_count': len(log_events),
+                'csv_events': list(csv_events),
+                'log_events': list(log_events)
+            }
+        }
+        
+        return jsonify(response_data)
 
     except Exception as e:
         app.logger.error(f'Error processing files: {str(e)}')
@@ -572,6 +604,8 @@ def download_results():
                     result['comment'] = 'This field was not expected in the validation rules'
                 elif result['validationStatus'] == 'Payload not present in the log':
                     result['comment'] = 'Field is missing in the payload'
+                elif result['validationStatus'] == 'Event name not present in the logs':
+                    result['comment'] = f'Event "{result["eventName"]}" from CSV was not found in the uploaded log file'
                 else:
                     result['comment'] = result['validationStatus']
         
