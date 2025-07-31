@@ -30,6 +30,8 @@
         .status-extra { background-color: #d1ecf1 !important; color: #0c5460 !important; }
         .status-notpresent { background-color: #042508 !important; color: #7f7b97 !important; }
         .status-csv { background-color: #e2e3e5 !important; color: #383d41 !important; }
+        .status-extra-event { background-color: #f8d7da !important; color: #721c24 !important; }
+        .status-extra-field { background-color: #fff3cd !important; color: #856404 !important; }
         .validation-status {
             font-weight: bold;
         }
@@ -44,6 +46,12 @@
         }
         .status-extra {
             color: #17a2b8;
+        }
+        .status-extra-event {
+            color: #dc3545;
+        }
+        .status-extra-field {
+            color: #ffc107;
         }
         .filter-section {
             background-color: #f8f9fa;
@@ -559,6 +567,9 @@
             if (status === 'Invalid/Wrong datatype/value') return 'status-invalid';
             if (status === 'Payload value is Empty') return 'status-empty';
             if (status === 'Extra key present in the log') return 'status-extra';
+            if (status === 'Extra event present in logs') return 'status-extra-event';
+            if (status === 'Field from extra event') return 'status-extra-field';
+            if (status === 'Event name not present in the logs') return 'status-notpresent';
             return '';
         }
 

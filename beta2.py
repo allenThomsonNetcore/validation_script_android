@@ -492,13 +492,41 @@ def upload():
         csv_events = set(event_validations.keys())
         log_events = set(event_payload_map.keys())
         
+        # Add validation entries for extra events (events in logs but not in CSV)
+        extra_events = log_events - csv_events
+        for extra_event in extra_events:
+            payload = event_payload_map.get(extra_event, {})
+            results.append({
+                'eventName': extra_event,
+                'key': 'EVENT_NAME',
+                'value': extra_event,
+                'expectedType': 'event',
+                'receivedType': 'extra event in logs',
+                'validationStatus': 'Extra event present in logs',
+                'comment': f'Event "{extra_event}" found in logs but not defined in CSV validation rules'
+            })
+            
+            # Also add entries for all fields in the extra event's payload
+            if payload:
+                for key, value in payload.items():
+                    results.append({
+                        'eventName': extra_event,
+                        'key': key,
+                        'value': value,
+                        'expectedType': 'EXTRA_EVENT_FIELD',
+                        'receivedType': get_value_type(value),
+                        'validationStatus': 'Field from extra event',
+                        'comment': f'Field from event "{extra_event}" which is not defined in CSV validation rules'
+                    })
+        
         # Log validation results
         log_validation_event('validation_complete', {
             'total_validations': len(results),
             'valid_count': sum(1 for r in results if r['validationStatus'] == 'Valid'),
             'invalid_count': sum(1 for r in results if r['validationStatus'] != 'Valid'),
             'csv_events_count': len(csv_events),
-            'log_events_count': len(log_events)
+            'log_events_count': len(log_events),
+            'extra_events_count': len(extra_events)
         })
 
         # Return results with event count information
@@ -508,7 +536,8 @@ def upload():
                 'csv_events_count': len(csv_events),
                 'log_events_count': len(log_events),
                 'csv_events': list(csv_events),
-                'log_events': list(log_events)
+                'log_events': list(log_events),
+                'extra_events': list(extra_events)
             }
         }
         
@@ -606,6 +635,10 @@ def download_results():
                     result['comment'] = 'Field is missing in the payload'
                 elif result['validationStatus'] == 'Event name not present in the logs':
                     result['comment'] = f'Event "{result["eventName"]}" from CSV was not found in the uploaded log file'
+                elif result['validationStatus'] == 'Extra event present in logs':
+                    result['comment'] = f'Event "{result["eventName"]}" found in logs but not defined in CSV validation rules'
+                elif result['validationStatus'] == 'Field from extra event':
+                    result['comment'] = f'Field from event "{result["eventName"]}" which is not defined in CSV validation rules'
                 else:
                     result['comment'] = result['validationStatus']
         
