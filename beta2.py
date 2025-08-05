@@ -27,6 +27,8 @@ def log_request_info():
     app.logger.info('Headers: %s', request.headers)
     app.logger.info('Body: %s', request.get_data())
     app.logger.info('URL: %s', request.url)
+    app.logger.info('Method: %s', request.method)
+    app.logger.info('Endpoint: %s', request.endpoint)
 
 @app.after_request
 def after_request(response):
@@ -276,7 +278,11 @@ def validate_required_fields(payload: Dict, validations: List[Dict]) -> List[Dic
 
 @app.route('/health')
 def health_check():
-    return jsonify({"status": "healthy"}), 200
+    return jsonify({"status": "healthy", "message": "Validation API is running"}), 200
+
+@app.route('/test')
+def test_endpoint():
+    return jsonify({"message": "Test endpoint working", "endpoints": ["/upload", "/validate-website-logs", "/validate-website-logs-v2", "/filter", "/download"]}), 200
 
 @app.route('/')
 def index():
@@ -1350,4 +1356,6 @@ def download_results():
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=10000, debug=True)
+    import os
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port, debug=True)
