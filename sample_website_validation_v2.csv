@@ -1,0 +1,21 @@
+eventName,eventPayload,dataType,required,condition
+flight searched,src,text,true,{}
+flight searched,des,text,true,{}
+flight searched,flight_type,text,true,{}
+flight searched,departure_date,text,true,{}
+flight searched,return_date,text,false,{}
+flight searched,passenger_adult,integer,true,{}
+flight searched,passenger_child,integer,true,{}
+flight searched,flight_class,text,true,{}
+flight searched,source,text,true,{}
+product viewed,product_id,text,true,{}
+product viewed,product_name,text,true,{}
+product viewed,category,text,true,{}
+product viewed,brand,text,true,{}
+product viewed,price,integer,true,{}
+product viewed,currency,text,true,{}
+purchase completed,order_id,text,true,{}
+purchase completed,total_amount,integer,true,{}
+purchase completed,currency,text,true,{}
+purchase completed,payment_method,text,true,{}
+purchase completed,shipping_address,text,true,{} 
