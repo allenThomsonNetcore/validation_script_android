@@ -1,0 +1,11 @@
+eventName,eventPayload,dataType
+add_to_cart,prid,text
+,prqt,integer
+,image,text
+,product_name,text
+,category,text
+,brand,text
+,selling_price,integer
+,discounted_price,integer
+,stock_availability,integer
+,product_url,text

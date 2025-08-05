@@ -138,6 +138,22 @@
         
         <div class="card mb-4">
             <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">Validation Mode</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="validationMode" id="regularMode" value="regular" checked>
+                        <label class="form-check-label" for="regularMode">
+                            Regular Event Validation (Single Event/Event Payload format)
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="validationMode" id="websiteMode" value="website">
+                        <label class="form-check-label" for="websiteMode">
+                            Website Logs Validation (JSON lines format with eventname and payload)
+                        </label>
+                    </div>
+                </div>
+                
                 <form id="uploadForm" enctype="multipart/form-data">
                     <div class="mb-3">
                         <label for="csvFile" class="form-label">CSV File (Validation Rules)</label>
@@ -327,8 +343,12 @@
             e.preventDefault();
             const formData = new FormData(this);
             
+            // Determine which endpoint to use based on validation mode
+            const validationMode = $('input[name="validationMode"]:checked').val();
+            const endpoint = validationMode === 'website' ? '/validate-website-logs' : '/upload';
+            
             $.ajax({
-                url: '/upload',
+                url: endpoint,
                 type: 'POST',
                 data: formData,
                 processData: false,

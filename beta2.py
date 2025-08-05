@@ -603,6 +603,333 @@ def filter_results():
         app.logger.error(f'Error in filter endpoint: {str(e)}')
         return jsonify({'error': str(e)}), 500
 
+@app.route('/validate-website-logs', methods=['POST', 'OPTIONS'])
+def validate_website_logs():
+    app.logger.info('Website logs validation endpoint called')
+    if request.method == 'OPTIONS':
+        return '', 200
+        
+    if 'csv_file' not in request.files or 'txt_file' not in request.files:
+        return jsonify({"error": "Both CSV and TXT files are required"}), 400
+
+    try:
+        # Log file upload
+        log_validation_event('website_logs_upload', {
+            'csv_file': request.files['csv_file'].filename,
+            'txt_file': request.files['txt_file'].filename,
+            'timestamp': datetime.now().isoformat()
+        })
+
+        # Parse the CSV file (same as before)
+        csv_file = request.files['csv_file']
+        csv_file.stream.seek(0)
+        csv_reader = csv.DictReader(csv_file.stream.read().decode('utf-8').splitlines())
+        
+        # Group CSV rows by eventName
+        event_validations = {}
+        current_event = None
+        
+        for row in csv_reader:
+            event_name = row.get('eventName', '').strip()
+            if event_name:
+                current_event = event_name
+            
+            if current_event:
+                if current_event not in event_validations:
+                    event_validations[current_event] = []
+                
+                validation = {
+                    'key': row.get('eventPayload', '').strip(),
+                    'expectedType': row.get('dataType', '').strip(),
+                    'required': row.get('required', '').lower() == 'true',
+                    'condition': json.loads(row.get('condition', '{}'))
+                }
+                event_validations[current_event].append(validation)
+
+        # Parse the TXT file for website logs format
+        txt_file = request.files['txt_file']
+        txt_file.stream.seek(0)
+        txt_content = txt_file.stream.read().decode('utf-8')
+        
+        # Parse each line as a separate JSON object
+        parsed_logs = []
+        lines = txt_content.strip().split('\n')
+        
+        for line_num, line in enumerate(lines, 1):
+            line = line.strip()
+            if not line:
+                continue
+                
+            try:
+                log_entry = json.loads(line)
+                
+                # Extract event name and payload from website log format
+                event_name = log_entry.get('eventname')
+                payload = log_entry.get('payload', {})
+                
+                if event_name:
+                    parsed_logs.append({
+                        'eventName': event_name,
+                        'payload': payload,
+                        'line_number': line_num,
+                        'full_log': log_entry
+                    })
+                else:
+                    # Log warning for entries without eventname
+                    app.logger.warning(f'Line {line_num}: Missing eventname in log entry')
+                    
+            except json.JSONDecodeError as e:
+                app.logger.warning(f'Line {line_num}: Invalid JSON format - {str(e)}')
+                continue
+
+        # Map event names to payloads
+        event_payload_map = {}
+        for log in parsed_logs:
+            event_name = log['eventName']
+            if event_name not in event_payload_map:
+                event_payload_map[event_name] = []
+            event_payload_map[event_name].append({
+                'payload': log['payload'],
+                'line_number': log['line_number'],
+                'full_log': log['full_log']
+            })
+
+        # Validate the data
+        results = []
+        for event_name, validations in event_validations.items():
+            log_entries = event_payload_map.get(event_name, [])
+            
+            # Check if event name is present in the logs
+            if not log_entries:
+                # Event name from CSV is not present in the logs
+                results.append({
+                    'eventName': event_name,
+                    'key': 'EVENT_NAME',
+                    'value': event_name,
+                    'expectedType': 'event',
+                    'receivedType': 'not present in logs',
+                    'validationStatus': 'Event name not present in the logs',
+                    'comment': f'Event "{event_name}" from CSV was not found in the uploaded log file'
+                })
+                continue
+            
+            # Validate each occurrence of this event
+            for entry in log_entries:
+                payload = entry['payload']
+                line_number = entry['line_number']
+                
+                # Check required fields first
+                required_results = validate_required_fields(payload, validations)
+                for result in required_results:
+                    result['line_number'] = line_number
+                results.extend(required_results)
+
+                # Check conditional validations
+                for validation in validations:
+                    is_valid, error_msg = validate_conditional_fields(payload, validation)
+                    if not is_valid:
+                        results.append({
+                            'eventName': event_name,
+                            'key': validation['key'],
+                            'value': None,
+                            'expectedType': validation['expectedType'],
+                            'receivedType': 'invalid',
+                            'validationStatus': error_msg,
+                            'line_number': line_number
+                        })
+
+                # Check for array fields in the payload
+                array_fields = {k: v for k, v in payload.items() if isinstance(v, list)}
+                if array_fields:
+                    regular_validations = validate_array_of_objects(payload, validations, event_name, results)
+                    
+                    # Validate regular fields (non-array fields)
+                    normalized_payload = {normalize_key(k): v for k, v in payload.items() if k not in array_fields}
+                    
+                    # Check for extra keys in regular fields
+                    extra_keys = set(normalized_payload.keys()) - set([normalize_key(v['key']) for v in regular_validations])
+                    for extra_key in extra_keys:
+                        value = normalized_payload.get(extra_key)
+                        results.append({
+                            'eventName': event_name,
+                            'key': extra_key,
+                            'value': value,
+                            'expectedType': 'EXTRA',
+                            'receivedType': get_value_type(value),
+                            'validationStatus': 'Extra key present in the log',
+                            'line_number': line_number
+                        })
+
+                    # Validate regular fields
+                    for validation in regular_validations:
+                        key = validation['key']
+                        expected_type = validation['expectedType']
+                        normalized_key = normalize_key(key)
+                        value = normalized_payload.get(normalized_key)
+
+                        if not key or not expected_type:
+                            results.append({
+                                'eventName': event_name,
+                                'key': key,
+                                'value': None,
+                                'expectedType': expected_type,
+                                'receivedType': 'unknown',
+                                'validationStatus': 'Invalid CSV row',
+                                'line_number': line_number
+                            })
+                        elif normalized_key not in normalized_payload:
+                            results.append({
+                                'eventName': event_name,
+                                'key': key,
+                                'value': None,
+                                'expectedType': expected_type,
+                                'receivedType': 'not present',
+                                'validationStatus': 'Payload not present in the log',
+                                'line_number': line_number
+                            })
+                        else:
+                            validation_result = validate_value(value, expected_type, event_name)
+                            status = 'Valid' if validation_result and validation_result != "Null value" else \
+                                    'Payload value is Empty' if validation_result == "Null value" else \
+                                    'Invalid/Wrong datatype/value'
+                            formatted_value = get_formatted_value(value, expected_type)
+                            results.append({
+                                'eventName': event_name,
+                                'key': key,
+                                'value': formatted_value,
+                                'expectedType': expected_type,
+                                'receivedType': get_value_type(value),
+                                'validationStatus': status,
+                                'line_number': line_number
+                            })
+                else:
+                    # Regular validation for non-array payloads
+                    normalized_payload = {normalize_key(k): v for k, v in payload.items()}
+                    extra_keys = set(normalized_payload.keys()) - set([normalize_key(v['key']) for v in validations])
+                    for extra_key in extra_keys:
+                        value = normalized_payload.get(extra_key)
+                        results.append({
+                            'eventName': event_name,
+                            'key': extra_key,
+                            'value': value,
+                            'expectedType': 'EXTRA',
+                            'receivedType': get_value_type(value),
+                            'validationStatus': 'Extra key present in the log',
+                            'line_number': line_number
+                        })
+
+                    for validation in validations:
+                        key = validation['key']
+                        expected_type = validation['expectedType']
+
+                        if not key or not expected_type:
+                            results.append({
+                                'eventName': event_name,
+                                'key': key,
+                                'value': None,
+                                'expectedType': expected_type,
+                                'receivedType': 'unknown',
+                                'validationStatus': 'Invalid CSV row',
+                                'line_number': line_number
+                            })
+                            continue
+
+                        normalized_key = normalize_key(key)
+                        value = normalized_payload.get(normalized_key)
+
+                        if normalized_key not in normalized_payload:
+                            results.append({
+                                'eventName': event_name,
+                                'key': key,
+                                'value': None,
+                                'expectedType': expected_type,
+                                'receivedType': 'not present',
+                                'validationStatus': 'Payload not present in the log',
+                                'line_number': line_number
+                            })
+                        else:
+                            validation_result = validate_value(value, expected_type, event_name)
+                            status = 'Valid' if validation_result and validation_result != "Null value" else \
+                                    'Payload value is Empty' if validation_result == "Null value" else \
+                                    'Invalid/Wrong datatype/value'
+                            formatted_value = get_formatted_value(value, expected_type)
+                            results.append({
+                                'eventName': event_name,
+                                'key': key,
+                                'value': formatted_value,
+                                'expectedType': expected_type,
+                                'receivedType': get_value_type(value),
+                                'validationStatus': status,
+                                'line_number': line_number
+                            })
+
+        # Calculate event counts
+        csv_events = set(event_validations.keys())
+        log_events = set(event_payload_map.keys())
+        
+        # Add validation entries for extra events (events in logs but not in CSV)
+        extra_events = log_events - csv_events
+        for extra_event in extra_events:
+            log_entries = event_payload_map.get(extra_event, [])
+            for entry in log_entries:
+                payload = entry['payload']
+                line_number = entry['line_number']
+                
+                results.append({
+                    'eventName': extra_event,
+                    'key': 'EVENT_NAME',
+                    'value': extra_event,
+                    'expectedType': 'event',
+                    'receivedType': 'extra event in logs',
+                    'validationStatus': 'Extra event present in logs',
+                    'comment': f'Event "{extra_event}" found in logs but not defined in CSV validation rules',
+                    'line_number': line_number
+                })
+                
+                # Also add entries for all fields in the extra event's payload
+                if payload:
+                    for key, value in payload.items():
+                        results.append({
+                            'eventName': extra_event,
+                            'key': key,
+                            'value': value,
+                            'expectedType': 'EXTRA_EVENT_FIELD',
+                            'receivedType': get_value_type(value),
+                            'validationStatus': 'Field from extra event',
+                            'comment': f'Field from event "{extra_event}" which is not defined in CSV validation rules',
+                            'line_number': line_number
+                        })
+        
+        # Log validation results
+        log_validation_event('website_logs_validation_complete', {
+            'total_validations': len(results),
+            'valid_count': sum(1 for r in results if r['validationStatus'] == 'Valid'),
+            'invalid_count': sum(1 for r in results if r['validationStatus'] != 'Valid'),
+            'csv_events_count': len(csv_events),
+            'log_events_count': len(log_events),
+            'extra_events_count': len(extra_events),
+            'total_log_entries': len(parsed_logs)
+        })
+
+        # Return results with event count information
+        response_data = {
+            'results': results,
+            'summary': {
+                'csv_events_count': len(csv_events),
+                'log_events_count': len(log_events),
+                'csv_events': list(csv_events),
+                'log_events': list(log_events),
+                'extra_events': list(extra_events),
+                'total_log_entries': len(parsed_logs)
+            }
+        }
+        
+        return jsonify(response_data)
+
+    except Exception as e:
+        app.logger.error(f'Error processing website log files: {str(e)}')
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/download', methods=['POST', 'OPTIONS'])
 def download_results():
     app.logger.info('Download endpoint called')
