@@ -358,8 +358,15 @@
                 endpoint = '/validate-website-logs-v2';
             }
             
+            // Get the current domain to ensure we're hitting the right server
+            const baseUrl = window.location.origin;
+            const fullUrl = baseUrl + endpoint;
+            
+            console.log('Making request to:', fullUrl);
+            console.log('Validation mode:', validationMode);
+            
             $.ajax({
-                url: endpoint,
+                url: fullUrl,
                 type: 'POST',
                 data: formData,
                 processData: false,
@@ -499,8 +506,14 @@
                 receivedType: activeFilters.receivedType
             };
 
+            // Get the current domain to ensure we're hitting the right server
+            const baseUrl = window.location.origin;
+            const fullUrl = baseUrl + '/filter';
+
+            console.log('Making filter request to:', fullUrl);
+
             $.ajax({
-                url: '/filter',
+                url: fullUrl,
                 type: 'POST',
                 data: JSON.stringify({
                     results: currentResults,
@@ -546,8 +559,14 @@
             // Use filtered results if available, otherwise use all results
             const resultsToDownload = window.filteredResults || currentResults;
             
+            // Get the current domain to ensure we're hitting the right server
+            const baseUrl = window.location.origin;
+            const fullUrl = baseUrl + '/download';
+            
+            console.log('Making download request to:', fullUrl);
+            
             $.ajax({
-                url: '/download',
+                url: fullUrl,
                 type: 'POST',
                 data: JSON.stringify({ results: resultsToDownload }),
                 contentType: 'application/json',
