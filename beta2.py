@@ -1293,29 +1293,44 @@ def download_results():
         writer = csv.DictWriter(output, fieldnames=['eventName', 'key', 'value', 'expectedType', 'receivedType', 'validationStatus', 'comment'])
         writer.writeheader()
         
-        # Add comments to results if not present
+        # Add comments to results if not present and prepare clean results for CSV
+        clean_results = []
         for result in results:
-            if 'comment' not in result:
-                if result['validationStatus'] == 'Valid':
-                    result['comment'] = 'Field validation passed'
-                elif result['validationStatus'] == 'Invalid/Wrong datatype/value':
-                    result['comment'] = f"Expected type: {result['expectedType']}, Received type: {result['receivedType']}"
-                elif result['validationStatus'] == 'Payload value is Empty':
-                    result['comment'] = 'Field value is empty or null'
-                elif result['validationStatus'] == 'Extra key present in the log':
-                    result['comment'] = 'This field was not expected in the validation rules'
-                elif result['validationStatus'] == 'Payload not present in the log':
-                    result['comment'] = 'Field is missing in the payload'
-                elif result['validationStatus'] == 'Event name not present in the logs':
-                    result['comment'] = f'Event "{result["eventName"]}" from CSV was not found in the uploaded log file'
-                elif result['validationStatus'] == 'Extra event present in logs':
-                    result['comment'] = f'Event "{result["eventName"]}" found in logs but not defined in CSV validation rules'
-                elif result['validationStatus'] == 'Field from extra event':
-                    result['comment'] = f'Field from event "{result["eventName"]}" which is not defined in CSV validation rules'
+            # Create a clean copy without line_number
+            clean_result = {
+                'eventName': result.get('eventName', ''),
+                'key': result.get('key', ''),
+                'value': result.get('value', ''),
+                'expectedType': result.get('expectedType', ''),
+                'receivedType': result.get('receivedType', ''),
+                'validationStatus': result.get('validationStatus', ''),
+                'comment': result.get('comment', '')
+            }
+            
+            # Add comment if not present
+            if not clean_result['comment']:
+                if clean_result['validationStatus'] == 'Valid':
+                    clean_result['comment'] = 'Field validation passed'
+                elif clean_result['validationStatus'] == 'Invalid/Wrong datatype/value':
+                    clean_result['comment'] = f"Expected type: {clean_result['expectedType']}, Received type: {clean_result['receivedType']}"
+                elif clean_result['validationStatus'] == 'Payload value is Empty':
+                    clean_result['comment'] = 'Field value is empty or null'
+                elif clean_result['validationStatus'] == 'Extra key present in the log':
+                    clean_result['comment'] = 'This field was not expected in the validation rules'
+                elif clean_result['validationStatus'] == 'Payload not present in the log':
+                    clean_result['comment'] = 'Field is missing in the payload'
+                elif clean_result['validationStatus'] == 'Event name not present in the logs':
+                    clean_result['comment'] = f'Event "{clean_result["eventName"]}" from CSV was not found in the uploaded log file'
+                elif clean_result['validationStatus'] == 'Extra event present in logs':
+                    clean_result['comment'] = f'Event "{clean_result["eventName"]}" found in logs but not defined in CSV validation rules'
+                elif clean_result['validationStatus'] == 'Field from extra event':
+                    clean_result['comment'] = f'Field from event "{clean_result["eventName"]}" which is not defined in CSV validation rules'
                 else:
-                    result['comment'] = result['validationStatus']
+                    clean_result['comment'] = clean_result['validationStatus']
+            
+            clean_results.append(clean_result)
         
-        writer.writerows(results)
+        writer.writerows(clean_results)
         
         # Create response
         output.seek(0)
