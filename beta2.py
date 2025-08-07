@@ -10,6 +10,10 @@ from datetime import datetime
 from typing import Dict, List, Tuple
 from collections import defaultdict
 
+# Configuration for float validation
+# Set to True to accept integers as valid float values (handles JSON serialization quirks)
+ACCEPT_INT_AS_FLOAT = True
+
 # Configure logging
 logging.basicConfig(
     filename='validation_audit.log',
@@ -57,6 +61,8 @@ def get_value_type(value):
     elif isinstance(value, bool):
         return "boolean"
     elif isinstance(value, int):
+        # Check if this int might have been a float originally
+        # This is a heuristic - we can't know for sure, but we can provide context
         return "integer"
     elif isinstance(value, float):
         return "float"
@@ -89,7 +95,15 @@ def validate_integer(value):
     return isinstance(value, int)
 
 def validate_float(value):
-    return isinstance(value, (float))  # Include int for JSON float compatibility
+    """Validate float values, handling JSON serialization quirks"""
+    if ACCEPT_INT_AS_FLOAT:
+        # Accept both float and int for float validation
+        # This handles cases where JSON serialization converts 3.00 to 3 (int)
+        # but 3.10 stays as 3.1 (float)
+        return isinstance(value, (float, int))
+    else:
+        # Strict float validation - only accept actual float values
+        return isinstance(value, float)
 
 def get_formatted_value(value, expected_type):
     """Format value based on its expected type"""
@@ -113,7 +127,11 @@ def validate_value(value, expected_type, event_name=None):
     elif expected_type == "integer":
         return validate_integer(value)
     elif expected_type == "float":
-        return validate_float(value)
+        result = validate_float(value)
+        # Add special handling for int values that might have been floats
+        if result and isinstance(value, int) and ACCEPT_INT_AS_FLOAT:
+            return "Valid (JSON serialization converted float to integer)"
+        return result
     return False
 
 def normalize_key(key):
@@ -1431,6 +1449,23 @@ def download_valid_events():
         # Filter only valid events
         valid_results = [r for r in results if r['validationStatus'] == 'Valid']
         app.logger.info(f'Number of valid results: {len(valid_results)}')
+        
+        # Group ALL results by eventName to check if ALL payloads for each event are valid
+        event_payloads = defaultdict(list)
+        for r in results:
+            event_payloads[r['eventName']].append(r['validationStatus'])
+        
+        # Only include events where ALL payloads are valid
+        fully_valid_events = [
+            event for event, statuses in event_payloads.items()
+            if all(status == 'Valid' for status in statuses)
+        ]
+        
+        app.logger.info(f'Fully valid events: {fully_valid_events}')
+        
+        # Now filter results to only include those from fully valid events
+        valid_results = [r for r in results if r['eventName'] in fully_valid_events and r['validationStatus'] == 'Valid']
+        app.logger.info(f'Number of results from fully valid events: {len(valid_results)}')
         
         # Group by eventName to get unique events
         event_groups = {}
