@@ -293,6 +293,9 @@
                 <div class="col-md-4 mb-3">
                     <button class="btn btn-success" id="downloadResults">Download Results</button>
                 </div>
+                <div class="col-md-4 mb-3">
+                    <button class="btn btn-info" id="downloadValidEvents">Download Valid Events</button>
+                </div>
             </div>
         </div>
 
@@ -384,6 +387,8 @@
                         // New format with summary
                         currentResults = response.results;
                         currentSummary = response.summary;
+                        // Store original logs for download feature
+                        window.originalLogs = response.original_logs || {};
                     } else {
                         // Old format - just results array
                         currentResults = response;
@@ -393,6 +398,7 @@
                             csv_events: [],
                             log_events: []
                         };
+                        window.originalLogs = {};
                     }
                     
                     updateEventSummary();
@@ -601,6 +607,44 @@
                 error: function(xhr) {
                     console.error('Download error:', xhr);
                     alert('Error downloading results: ' + xhr.responseText);
+                }
+            });
+        });
+
+        $('#downloadValidEvents').click(function() {
+            // Use filtered results if available, otherwise use all results
+            const resultsToDownload = window.filteredResults || currentResults;
+            
+            // Get the current domain to ensure we're hitting the right server
+            const baseUrl = window.location.origin;
+            const fullUrl = baseUrl + '/download-valid-events';
+            
+            console.log('Making download valid events request to:', fullUrl);
+            
+            $.ajax({
+                url: fullUrl,
+                type: 'POST',
+                data: JSON.stringify({ 
+                    results: resultsToDownload,
+                    logs_data: window.originalLogs || {}
+                }),
+                contentType: 'application/json',
+                xhrFields: {
+                    responseType: 'blob'
+                },
+                success: function(blob) {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'valid_events_report.csv';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    a.remove();
+                },
+                error: function(xhr) {
+                    console.error('Download valid events error:', xhr);
+                    alert('Error downloading valid events: ' + xhr.responseText);
                 }
             });
         });

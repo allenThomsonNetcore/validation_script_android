@@ -327,18 +327,27 @@ def upload():
         event_logs = re.findall(event_pattern, txt_content, re.DOTALL)
         parsed_logs = []
         
+        # Store original log entries for download feature
+        original_logs = {}
+        
         for log in event_logs:
             try:
                 parsed_log = json.loads(log)
                 # Handle Single Event format
                 if 'eventName' in parsed_log:
                     # If the log already has eventName, use it directly
-                    parsed_log['eventName'] = parsed_log['eventName'].lower()  # Convert to lowercase
+                    event_name = parsed_log['eventName'].lower()  # Convert to lowercase
+                    parsed_log['eventName'] = event_name
                     parsed_log['payload'] = parsed_log.get('payload', {})
+                    # Store the original log entry
+                    original_logs[event_name] = f"Event Payload: {log}"
                 elif 'event' in parsed_log:
                     # Handle old Single Event format
-                    parsed_log['eventName'] = parsed_log['event'].lower()  # Convert to lowercase
+                    event_name = parsed_log['event'].lower()  # Convert to lowercase
+                    parsed_log['eventName'] = event_name
                     parsed_log['payload'] = parsed_log.get('data', {})
+                    # Store the original log entry
+                    original_logs[event_name] = f"Event Payload: {log}"
                 parsed_logs.append(parsed_log)
             except json.JSONDecodeError:
                 continue
@@ -347,7 +356,7 @@ def upload():
         event_payload_map = {
             log.get("eventName"): log.get("payload", {}) for log in parsed_logs
         }
-
+        
         # Validate the data
         results = []
         for event_name, validations in event_validations.items():
@@ -562,7 +571,8 @@ def upload():
                 'log_events': list(log_events),
                 'extra_events': list(extra_events)
             },
-            'fully_valid_events': fully_valid_events
+            'fully_valid_events': fully_valid_events,
+            'original_logs': original_logs # Add original_logs to the response
         }
         
         return jsonify(response_data)
@@ -661,6 +671,9 @@ def validate_website_logs():
         parsed_logs = []
         lines = txt_content.strip().split('\n')
         
+        # Store original log entries for download feature
+        original_logs = {}
+        
         for line_num, line in enumerate(lines, 1):
             line = line.strip()
             if not line:
@@ -674,12 +687,15 @@ def validate_website_logs():
                 payload = log_entry.get('payload', {})
                 
                 if event_name:
+                    event_name_lower = event_name.lower()  # Convert to lowercase
                     parsed_logs.append({
-                        'eventName': event_name.lower(),  # Convert to lowercase
+                        'eventName': event_name_lower,
                         'payload': payload,
                         'line_number': line_num,
                         'full_log': log_entry
                     })
+                    # Store the original log line
+                    original_logs[event_name_lower] = line
                 else:
                     # Log warning for entries without eventname
                     app.logger.warning(f'Line {line_num}: Missing eventname in log entry')
@@ -935,7 +951,8 @@ def validate_website_logs():
                 'extra_events': list(extra_events),
                 'total_log_entries': len(parsed_logs)
             },
-            'fully_valid_events': fully_valid_events
+            'fully_valid_events': fully_valid_events,
+            'original_logs': original_logs
         }
         return jsonify(response_data)
 
@@ -976,6 +993,9 @@ def validate_website_logs_v2():
         # Parse JSON objects from the content
         parsed_logs = []
         
+        # Store original log entries for download feature
+        original_logs = {}
+        
         # Try to parse as single JSON object first (for single object files)
         try:
             single_json = json.loads(txt_content.strip())
@@ -985,12 +1005,15 @@ def validate_website_logs_v2():
                 system_fields = {'event', 'url', 'purl', 'title', 'npv', 'sts', 'pts', 'timestamp'}
                 payload = {k: v for k, v in single_json.items() if k not in system_fields}
                 
+                event_name_lower = event_name.lower()
                 parsed_logs.append({
-                    'eventName': event_name.lower(),  # Convert to lowercase
+                    'eventName': event_name_lower,
                     'payload': payload,
                     'line_number': 1,
                     'full_log': single_json
                 })
+                # Store the original log entry
+                original_logs[event_name_lower] = txt_content.strip()
             else:
                 # Single JSON object but no event, try to parse as array
                 if isinstance(single_json, list):
@@ -1000,12 +1023,15 @@ def validate_website_logs_v2():
                             system_fields = {'event', 'url', 'purl', 'title', 'npv', 'sts', 'pts', 'timestamp'}
                             payload = {k: v for k, v in item.items() if k not in system_fields}
                             
+                            event_name_lower = event_name.lower()
                             parsed_logs.append({
-                                'eventName': event_name.lower(),  # Convert to lowercase
+                                'eventName': event_name_lower,
                                 'payload': payload,
                                 'line_number': idx,
                                 'full_log': item
                             })
+                            # Store the original log entry
+                            original_logs[event_name_lower] = json.dumps(item)
         except json.JSONDecodeError:
             # Not a single JSON object, try line-by-line parsing
             lines = txt_content.strip().split('\n')
@@ -1034,12 +1060,16 @@ def validate_website_logs_v2():
                         system_fields = {'event', 'url', 'purl', 'title', 'npv', 'sts', 'pts', 'timestamp'}
                         payload = {k: v for k, v in log_entry.items() if k not in system_fields}
                         
+                        event_name_lower = event_name.lower()
                         parsed_logs.append({
-                            'eventName': event_name.lower(),  # Convert to lowercase
+                            'eventName': event_name_lower,
                             'payload': payload,
                             'line_number': line_num,
                             'full_log': log_entry
                         })
+                        
+                        # Store the original log entry
+                        original_logs[event_name_lower] = current_json
                         
                         # Reset for next JSON object
                         current_json = ""
@@ -1063,7 +1093,7 @@ def validate_website_logs_v2():
                 'line_number': log['line_number'],
                 'full_log': log['full_log']
             })
-
+        
         # Validate the data
         results = []
         for event_name, validations in event_validations.items():
@@ -1299,7 +1329,8 @@ def validate_website_logs_v2():
                 'extra_events': list(extra_events),
                 'total_log_entries': len(parsed_logs)
             },
-            'fully_valid_events': fully_valid_events
+            'fully_valid_events': fully_valid_events,
+            'original_logs': original_logs
         }
         return jsonify(response_data)
 
@@ -1378,6 +1409,83 @@ def download_results():
         )
     except Exception as e:
         app.logger.error(f'Error in download endpoint: {str(e)}')
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/download-valid-events', methods=['POST', 'OPTIONS'])
+def download_valid_events():
+    app.logger.info('Download valid events endpoint called')
+    if request.method == 'OPTIONS':
+        return '', 200
+        
+    try:
+        data = request.get_json()
+        app.logger.info('Download valid events data received')
+        
+        results = data.get('results', [])
+        logs_data = data.get('logs_data', {})  # This should contain the original log entries
+        
+        app.logger.info(f'Number of results: {len(results)}')
+        app.logger.info(f'Number of log entries: {len(logs_data)}')
+        app.logger.info(f'Log entries keys: {list(logs_data.keys())}')
+        
+        # Filter only valid events
+        valid_results = [r for r in results if r['validationStatus'] == 'Valid']
+        app.logger.info(f'Number of valid results: {len(valid_results)}')
+        
+        # Group by eventName to get unique events
+        event_groups = {}
+        for result in valid_results:
+            event_name = result['eventName']
+            if event_name not in event_groups:
+                event_groups[event_name] = []
+            event_groups[event_name].append(result)
+        
+        # Create CSV content
+        output = io.StringIO()
+        writer = csv.writer(output, delimiter='\t')  # Use tab delimiter as shown in example
+        
+        # Write header
+        writer.writerow(['eventName', 'eventPayload', 'dataType', 'Logs'])
+        
+        # Write data rows
+        for event_name, event_results in event_groups.items():
+            # Get the original log entry for this event
+            log_entry = logs_data.get(event_name, '')
+            
+            # Write first row with event name and first field, plus the log entry
+            if event_results:
+                first_result = event_results[0]
+                writer.writerow([
+                    first_result['eventName'],
+                    first_result['key'],
+                    first_result['expectedType'],
+                    log_entry if log_entry else ""
+                ])
+                
+                # Write remaining rows for this event (without event name and log entry)
+                for result in event_results[1:]:
+                    writer.writerow([
+                        "",  # Empty eventName for subsequent rows
+                        result['key'],
+                        result['expectedType'],
+                        ""  # Empty Logs for subsequent rows
+                    ])
+        
+        # Create response
+        output.seek(0)
+        app.logger.info('Valid events CSV file generated successfully')
+        return Response(
+            output,
+            mimetype='text/csv',
+            headers={
+                'Content-Disposition': 'attachment; filename=valid_events_report.csv',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type'
+            }
+        )
+    except Exception as e:
+        app.logger.error(f'Error in download valid events endpoint: {str(e)}')
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
