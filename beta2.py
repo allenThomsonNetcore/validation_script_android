@@ -8,6 +8,7 @@ import logging
 import os
 from datetime import datetime
 from typing import Dict, List, Tuple
+from collections import defaultdict
 
 # Configure logging
 logging.basicConfig(
@@ -542,6 +543,15 @@ def upload():
             'extra_events_count': len(extra_events)
         })
 
+        # After results are generated, compute fully valid events
+        event_payloads = defaultdict(list)
+        for r in results:
+            event_payloads[r['eventName']].append(r['validationStatus'])
+        fully_valid_events = [
+            event for event, statuses in event_payloads.items()
+            if all(status == 'Valid' for status in statuses)
+        ]
+
         # Return results with event count information
         response_data = {
             'results': results,
@@ -551,7 +561,8 @@ def upload():
                 'csv_events': list(csv_events),
                 'log_events': list(log_events),
                 'extra_events': list(extra_events)
-            }
+            },
+            'fully_valid_events': fully_valid_events
         }
         
         return jsonify(response_data)
@@ -906,7 +917,14 @@ def validate_website_logs():
             'total_log_entries': len(parsed_logs)
         })
 
-        # Return results with event count information
+        # After results are generated, compute fully valid events
+        event_payloads = defaultdict(list)
+        for r in results:
+            event_payloads[r['eventName']].append(r['validationStatus'])
+        fully_valid_events = [
+            event for event, statuses in event_payloads.items()
+            if all(status == 'Valid' for status in statuses)
+        ]
         response_data = {
             'results': results,
             'summary': {
@@ -916,9 +934,9 @@ def validate_website_logs():
                 'log_events': list(log_events),
                 'extra_events': list(extra_events),
                 'total_log_entries': len(parsed_logs)
-            }
+            },
+            'fully_valid_events': fully_valid_events
         }
-        
         return jsonify(response_data)
 
     except Exception as e:
@@ -1263,7 +1281,14 @@ def validate_website_logs_v2():
             'total_log_entries': len(parsed_logs)
         })
 
-        # Return results with event count information
+        # After results are generated, compute fully valid events
+        event_payloads = defaultdict(list)
+        for r in results:
+            event_payloads[r['eventName']].append(r['validationStatus'])
+        fully_valid_events = [
+            event for event, statuses in event_payloads.items()
+            if all(status == 'Valid' for status in statuses)
+        ]
         response_data = {
             'results': results,
             'summary': {
@@ -1273,9 +1298,9 @@ def validate_website_logs_v2():
                 'log_events': list(log_events),
                 'extra_events': list(extra_events),
                 'total_log_entries': len(parsed_logs)
-            }
+            },
+            'fully_valid_events': fully_valid_events
         }
-        
         return jsonify(response_data)
 
     except Exception as e:

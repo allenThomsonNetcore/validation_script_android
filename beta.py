@@ -4,6 +4,7 @@ import csv
 import json
 import re
 from io import StringIO
+from collections import defaultdict
 
 app = Flask(__name__)
 CORS(app)
@@ -380,7 +381,19 @@ def upload():
                             'validationStatus': status
                         })
 
-        return jsonify(results)
+        # After results are generated, compute fully valid events
+        event_payloads = defaultdict(list)
+        for r in results:
+            event_payloads[r['eventName']].append(r['validationStatus'])
+        fully_valid_events = [
+            event for event, statuses in event_payloads.items()
+            if all(status == 'Valid' for status in statuses)
+        ]
+        # Return results and fully valid events
+        return jsonify({
+            'results': results,
+            'fully_valid_events': fully_valid_events
+        })
 
     except Exception as e:
         return f"Error processing files: {e}", 500

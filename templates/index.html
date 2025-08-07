@@ -296,6 +296,11 @@
             </div>
         </div>
 
+        <div id="fullyValidEventsSection" class="alert alert-success" style="display:none;">
+            <strong>Events with all payloads valid:</strong>
+            <ul id="fullyValidEventsList" style="margin-bottom:0;"></ul>
+        </div>
+
         <div class="table-container">
             <table class="table table-striped" id="resultsTable">
                 <thead>
@@ -394,6 +399,16 @@
                     updateFilters();
                     displayResults(currentResults);
                     $('#filterSection').show();
+
+                    if (response.fully_valid_events && response.fully_valid_events.length > 0) {
+                        $('#fullyValidEventsList').empty();
+                        response.fully_valid_events.forEach(function(eventName) {
+                            $('#fullyValidEventsList').append('<li>' + eventName + '</li>');
+                        });
+                        $('#fullyValidEventsSection').show();
+                    } else {
+                        $('#fullyValidEventsSection').hide();
+                    }
                 },
                 error: function(xhr) {
                     console.error('Upload error:', xhr);
