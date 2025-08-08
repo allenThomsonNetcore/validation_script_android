@@ -12,7 +12,7 @@ from collections import defaultdict
 
 # Configuration for float validation
 # Set to True to accept integers as valid float values (handles JSON serialization quirks)
-ACCEPT_INT_AS_FLOAT = True
+ACCEPT_INT_AS_FLOAT = False
 
 # Configure logging
 logging.basicConfig(
@@ -1463,13 +1463,13 @@ def download_valid_events():
         
         app.logger.info(f'Fully valid events: {fully_valid_events}')
         
-        # Now filter results to only include those from fully valid events
-        valid_results = [r for r in results if r['eventName'] in fully_valid_events and r['validationStatus'] == 'Valid']
-        app.logger.info(f'Number of results from fully valid events: {len(valid_results)}')
+        # Include ALL events in the report (both valid and invalid)
+        all_events = list(event_payloads.keys())
+        app.logger.info(f'All events: {all_events}')
         
-        # Group by eventName to get unique events
+        # Group by eventName to get all events
         event_groups = {}
-        for result in valid_results:
+        for result in results:
             event_name = result['eventName']
             if event_name not in event_groups:
                 event_groups[event_name] = []
@@ -1482,19 +1482,31 @@ def download_valid_events():
         # Write header
         writer.writerow(['eventName', 'eventPayload', 'dataType', 'Logs'])
         
-        # Write data rows
-        for event_name, event_results in event_groups.items():
+        # Write data rows for all events
+        for event_name in all_events:
+            event_results = event_groups.get(event_name, [])
+            
+            # Check if this event is fully valid
+            is_fully_valid = event_name in fully_valid_events
+            
             # Get the original log entry for this event
             log_entry = logs_data.get(event_name, '')
             
-            # Write first row with event name and first field, plus the log entry
+            # Write first row with event name and first field
             if event_results:
                 first_result = event_results[0]
+                
+                # Determine what to put in the Logs column
+                if is_fully_valid:
+                    logs_content = log_entry if log_entry else ""
+                else:
+                    logs_content = "need to validate further"
+                
                 writer.writerow([
                     first_result['eventName'],
                     first_result['key'],
                     first_result['expectedType'],
-                    log_entry if log_entry else ""
+                    logs_content
                 ])
                 
                 # Write remaining rows for this event (without event name and log entry)
