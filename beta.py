@@ -1,14 +1,31 @@
-from flask import Flask, request, render_template, jsonify, Response, send_file
+from flask import Flask, request, render_template, jsonify, Response, send_from_directory, send_file
 from flask_cors import CORS
 import csv
 import json
 import re
+import io
+import logging
 import os
-from io import StringIO
+from datetime import datetime
+from typing import Dict, List, Tuple
 from collections import defaultdict
 
-app = Flask(__name__)
-CORS(app)
+# Configuration for float validation
+# Set to True to accept integers as valid float values (handles JSON serialization quirks)
+ACCEPT_INT_AS_FLOAT = False
+
+# Configure logging
+logging.basicConfig(
+    filename='validation_audit.log',
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+
+app = Flask(__name__, static_folder='static', template_folder='templates')
+CORS(app, resources={r"/*": {"origins": "*"}})
+
+# Enable debug mode
+app.debug = True
 
 @app.route('/download_template', methods=['GET'])
 def download_template():
@@ -18,66 +35,74 @@ def download_template():
                     as_attachment=True,
                     download_name='sample_template.csv')
 
-@app.route('/download_sample_log', methods=['GET'])
-def download_sample_log():
-    """Download a sample log file"""
-    return send_file('sample_website_logs.txt',
-                    mimetype='text/plain',
-                    as_attachment=True,
-                    download_name='sample_log.txt')
-
-def generate_comment(validation_status):
-    if validation_status == "Extra key present in the log":
-        return "Either you have triggered a wrong (casing mismatch) eventPayload or a new eventPayload which is not present in the sheet"
-    elif validation_status == "Payload not present in the log":
-        return "Either you have missed to append the eventPayload or triggered wrong eventPayload"
-    return ""
-
-@app.route('/download_csv', methods=['POST'])
-def download_csv():
+@app.route('/download_sample_log/<mode>', methods=['GET'])
+def download_sample_log(mode):
+    """Download a sample log file based on validation mode"""
     try:
-        # Get the validation results from the POST request
-        results = request.json
+        if mode == 'regular':
+            filename = 'samplelog_android.txt'
+        elif mode == 'website':
+            filename = 'sample_website_logs.txt'
+        elif mode == 'website-v2':
+            # Return v2 or multiline based on query parameter
+            is_multiline = request.args.get('multiline', 'false').lower() == 'true'
+            filename = 'sample_website_logs_v2_multiline.txt' if is_multiline else 'sample_website_logs_v2.txt'
+        else:
+            return jsonify({"error": "Invalid mode"}), 400
         
-        # Create a StringIO object to write CSV data
-        si = StringIO()
-        writer = csv.writer(si)
+        # Get the absolute path to the file
+        file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), filename)
         
-        # Write headers
-        writer.writerow([
-            "eventName", 
-            "eventPayload", 
-            "Value", 
-            "required datatype", 
-            "received datatype", 
-            "Validation status", 
-            "Comments"
-        ])
-        
-        # Write data rows
-        for result in results:
-            writer.writerow([
-                result['eventName'],
-                result['key'],
-                result['value'] if result['value'] is not None else "null",
-                result['expectedType'] if result['expectedType'] is not None else "null",
-                result['receivedType'] if result['receivedType'] is not None else "null",
-                result['validationStatus'],
-                generate_comment(result['validationStatus'])
-            ])
-        
-        # Create the response
-        output = Response(
-            si.getvalue(),
-            mimetype='text/csv',
-            headers={
-                'Content-Disposition': 'attachment; filename=validation_report.csv'
-            }
+        if not os.path.exists(file_path):
+            app.logger.error(f'Sample file not found: {file_path}')
+            return jsonify({"error": f"Sample file {filename} not found"}), 404
+            
+        app.logger.info(f'Sending sample file: {file_path}')
+        return send_file(
+            file_path,
+            mimetype='text/plain',
+            as_attachment=True,
+            download_name=filename
         )
-        return output
-        
     except Exception as e:
-        return f"Error generating CSV: {e}", 500
+        app.logger.error(f'Error sending sample file: {str(e)}')
+        return jsonify({"error": str(e)}), 500
+
+@app.before_request
+def log_request_info():
+    app.logger.info('Headers: %s', request.headers)
+    app.logger.info('Body: %s', request.get_data())
+    app.logger.info('URL: %s', request.url)
+    app.logger.info('Method: %s', request.method)
+    app.logger.info('Endpoint: %s', request.endpoint)
+
+@app.after_request
+def after_request(response):
+    if response.direct_passthrough:
+        # For file responses, just log the content type and headers
+        app.logger.info('Response: [File Response] Content-Type: %s, Headers: %s', 
+                       response.content_type, dict(response.headers))
+    else:
+        # For regular responses, log the data
+        try:
+            app.logger.info('Response: %s', response.get_data())
+        except Exception as e:
+            app.logger.warning('Could not log response data: %s', str(e))
+    return response
+
+@app.errorhandler(404)
+def not_found_error(error):
+    app.logger.error('Page not found: %s', request.url)
+    return jsonify({'error': 'Not found', 'url': request.url}), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    app.logger.error('Server Error: %s', error)
+    return jsonify({'error': 'Internal server error'}), 500
+
+def log_validation_event(event_type: str, details: Dict):
+    """Log validation events for audit purposes"""
+    logging.info(f"{event_type}: {json.dumps(details)}")
 
 def get_value_type(value):
     """Determine the actual type of a value"""
@@ -86,6 +111,8 @@ def get_value_type(value):
     elif isinstance(value, bool):
         return "boolean"
     elif isinstance(value, int):
+        # Check if this int might have been a float originally
+        # This is a heuristic - we can't know for sure, but we can provide context
         return "integer"
     elif isinstance(value, float):
         return "float"
@@ -118,7 +145,15 @@ def validate_integer(value):
     return isinstance(value, int)
 
 def validate_float(value):
-    return isinstance(value, (float))  # Include int for JSON float compatibility
+    """Validate float values, handling JSON serialization quirks"""
+    if ACCEPT_INT_AS_FLOAT:
+        # Accept both float and int for float validation
+        # This handles cases where JSON serialization converts 3.00 to 3 (int)
+        # but 3.10 stays as 3.1 (float)
+        return isinstance(value, (float, int))
+    else:
+        # Strict float validation - only accept actual float values
+        return isinstance(value, float)
 
 def get_formatted_value(value, expected_type):
     """Format value based on its expected type"""
@@ -142,18 +177,47 @@ def validate_value(value, expected_type, event_name=None):
     elif expected_type == "integer":
         return validate_integer(value)
     elif expected_type == "float":
-        return validate_float(value)
+        result = validate_float(value)
+        # Add special handling for int values that might have been floats
+        if result and isinstance(value, int) and ACCEPT_INT_AS_FLOAT:
+            return "Valid (JSON serialization converted float to integer)"
+        return result
     return False
 
 def normalize_key(key):
-    return key.lower() if key else None
+    """Normalize key by converting to lowercase and replacing spaces with underscores"""
+    return key.replace(" ", "_").lower() if key else None
+
+def parse_csv_with_case_normalization(csv_reader):
+    """Parse CSV and normalize event names and field names to lowercase"""
+    event_validations = {}
+    current_event = None
+    
+    for row in csv_reader:
+        event_name = row.get('eventName', '').strip().lower()  # Convert event name to lowercase
+        if event_name:
+            current_event = event_name
+        
+        if current_event:
+            if current_event not in event_validations:
+                event_validations[current_event] = []
+            
+            validation = {
+                'key': row.get('eventPayload', '').strip().lower(),  # Convert field name to lowercase
+                'expectedType': row.get('dataType', '').strip(),
+                'required': row.get('required', '').lower() == 'true',
+                'condition': json.loads(row.get('condition', '{}'))
+            }
+            event_validations[current_event].append(validation)
+    
+    return event_validations
 
 def get_array_field_name(key):
-    # Match pattern like "items[].field_name"
-    match = re.match(r"items\[\]\.(.+)", key)
+    # Match pattern like "field_name[].subfield" or "items[].field_name"
+    match = re.match(r"(.+)\[\]\.(.+)", key)
     if match:
-        return match.group(1)
-    return None
+        return match.group(1), match.group(2)
+    return None, None
 
 def validate_array_of_objects(array_payload, validations, event_name, results):
     # Extract validation rules for array items
@@ -162,10 +226,12 @@ def validate_array_of_objects(array_payload, validations, event_name, results):
     
     for validation in validations:
         key = validation['key']
-        field_name = get_array_field_name(key)
+        array_field, field_name = get_array_field_name(key)
         
-        if field_name:
-            array_validations[normalize_key(field_name)] = {
+        if array_field and field_name:
+            if array_field not in array_validations:
+                array_validations[array_field] = {}
+            array_validations[array_field][normalize_key(field_name)] = {
                 'expectedType': validation['expectedType'],
                 'originalKey': key
             }
@@ -176,118 +242,233 @@ def validate_array_of_objects(array_payload, validations, event_name, results):
     if not array_validations:
         return validations
 
-    # Validate each object in the array
-    for index, obj in enumerate(array_payload):
-        if not isinstance(obj, dict):
+    # Validate each array field
+    for array_field, field_validations in array_validations.items():
+        array_data = array_payload.get(array_field, [])
+        if not isinstance(array_data, list):
             results.append({
                 'eventName': event_name,
-                'key': f"items[{index}]",
-                'value': obj,
-                'expectedType': None,
-                'receivedType': get_value_type(obj),
-                'validationStatus': 'Invalid object in array'
+                'key': array_field,
+                'value': array_data,
+                'expectedType': 'array',
+                'receivedType': get_value_type(array_data),
+                'validationStatus': 'Invalid array field'
             })
             continue
 
-        # Check for required fields and validate them
-        for field_name, validation_info in array_validations.items():
-            expected_type = validation_info['expectedType']
-            original_key = validation_info['originalKey']
-            value = obj.get(field_name)
-
-            validation_result = validate_value(value, expected_type, event_name)
-            status = 'Valid' if validation_result and validation_result != "Null value" else \
-                    'Payload value is Empty' if validation_result == "Null value" else \
-                    'Invalid/Wrong datatype/value'
-            
-            formatted_value = get_formatted_value(value, expected_type)
-            
-            results.append({
-                'eventName': event_name,
-                'key': f"items[{index}].{field_name}",
-                'value': formatted_value,
-                'expectedType': expected_type,
-                'receivedType': get_value_type(value),
-                'validationStatus': status
-            })
-
-        # Check for unexpected fields in this object
-        for key in obj.keys():
-            normalized_key = normalize_key(key)
-            if normalized_key not in array_validations:
-                value = obj[key]
+        # Validate each object in the array
+        for index, obj in enumerate(array_data):
+            if not isinstance(obj, dict):
                 results.append({
                     'eventName': event_name,
-                    'key': f"items[{index}].{key}",
-                    'value': value,
+                    'key': f"{array_field}[{index}]",
+                    'value': obj,
                     'expectedType': None,
+                    'receivedType': get_value_type(obj),
+                    'validationStatus': 'Invalid object in array'
+                })
+                continue
+
+            # Check for required fields and validate them
+            for field_name, validation_info in field_validations.items():
+                expected_type = validation_info['expectedType']
+                original_key = validation_info['originalKey']
+                value = obj.get(field_name)
+
+                validation_result = validate_value(value, expected_type, event_name)
+                status = 'Valid' if validation_result and validation_result != "Null value" else \
+                        'Payload value is Empty' if validation_result == "Null value" else \
+                        'Invalid/Wrong datatype/value'
+                
+                formatted_value = get_formatted_value(value, expected_type)
+                
+                results.append({
+                    'eventName': event_name,
+                    'key': f"{array_field}[{index}].{field_name}",
+                    'value': formatted_value,
+                    'expectedType': expected_type,
                     'receivedType': get_value_type(value),
-                    'validationStatus': 'Unexpected key in array object'
+                    'validationStatus': status
                 })
 
+            # Check for unexpected fields in this object
+            for key in obj.keys():
+                normalized_key = normalize_key(key)
+                if normalized_key not in field_validations:
+                    value = obj[key]
+                    results.append({
+                        'eventName': event_name,
+                        'key': f"{array_field}[{index}].{key}",
+                        'value': value,
+                        'expectedType': None,
+                        'receivedType': get_value_type(value),
+                        'validationStatus': 'Unexpected key in array object'
+                    })
+
     return regular_validations
+
+def validate_conditional_fields(payload: Dict, validation: Dict) -> Tuple[bool, str]:
+    """Validate fields based on conditional rules"""
+    if 'condition' not in validation:
+        return True, ""
+    
+    condition = validation['condition']
+    if_field = condition.get('if_field')
+    if_value = condition.get('if_value')
+    then_field = condition.get('then_field')
+    then_type = condition.get('then_type')
+    
+    if if_field in payload and payload[if_field] == if_value:
+        if then_field not in payload:
+            return False, f"Required field '{then_field}' is missing when '{if_field}' is '{if_value}'"
+        if not validate_value(payload[then_field], then_type):
+            return False, f"Field '{then_field}' has invalid type when '{if_field}' is '{if_value}'"
+    
+    return True, ""
+
+def validate_required_fields(payload: Dict, validations: List[Dict]) -> List[Dict]:
+    """Check for required fields and add validation results"""
+    results = []
+    required_fields = [v['key'] for v in validations if v.get('required', False)]
+    
+    for field in required_fields:
+        if field not in payload:
+            results.append({
+                'eventName': payload.get('eventName', 'unknown'),
+                'key': field,
+                'value': None,
+                'expectedType': next((v['expectedType'] for v in validations if v['key'] == field), None),
+                'receivedType': 'not present',
+                'validationStatus': 'Required field missing',
+                'comment': 'Required field is missing in the payload'
+            })
+    
+    return results
+
+@app.route('/health')
+def health_check():
+    return jsonify({"status": "healthy", "message": "Validation API is running"}), 200
+
+@app.route('/test')
+def test_endpoint():
+    return jsonify({"message": "Test endpoint working", "endpoints": ["/upload", "/validate-website-logs", "/validate-website-logs-v2", "/filter", "/download"]}), 200
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
-@app.route('/upload', methods=['POST'])
+@app.route('/static/<path:path>')
+def send_static(path):
+    return send_from_directory('static', path)
+
+@app.route('/upload', methods=['POST', 'OPTIONS'])
 def upload():
+    app.logger.info('Upload endpoint called')
+    if request.method == 'OPTIONS':
+        return '', 200
+        
     if 'csv_file' not in request.files or 'txt_file' not in request.files:
-        return "Both CSV and TXT files are required", 400
-
-    csv_file = request.files['csv_file']
-    txt_file = request.files['txt_file']
-
-    if csv_file.filename == '' or txt_file.filename == '':
-        return "Both files must be selected", 400
+        return jsonify({"error": "Both CSV and TXT files are required"}), 400
 
     try:
+        # Log file upload
+        log_validation_event('file_upload', {
+            'csv_file': request.files['csv_file'].filename,
+            'txt_file': request.files['txt_file'].filename,
+            'timestamp': datetime.now().isoformat()
+        })
+
         # Parse the CSV file
+        csv_file = request.files['csv_file']
         csv_file.stream.seek(0)
         csv_reader = csv.DictReader(csv_file.stream.read().decode('utf-8').splitlines())
         
-        # Group CSV rows by eventName
-        event_validations = {}
-        current_event = None
-        
-        for row in csv_reader:
-            event_name = row.get('eventName', '').strip()
-            if event_name:
-                current_event = event_name
-            
-            if current_event:
-                if current_event not in event_validations:
-                    event_validations[current_event] = []
-                
-                event_validations[current_event].append({
-                    'key': row.get('eventPayload', '').strip(),
-                    'expectedType': row.get('dataType', '').strip()
-                })
+        # Group CSV rows by eventName with case normalization
+        event_validations = parse_csv_with_case_normalization(csv_reader)
 
         # Parse the TXT file
+        txt_file = request.files['txt_file']
         txt_file.stream.seek(0)
         txt_content = txt_file.stream.read().decode('utf-8')
         event_pattern = r"(?:Single Event|Event Payload|Web Event): (\{.*?\})(?=\s*(?:Single Event|Event Payload|Web Event):|$)"
 
         event_logs = re.findall(event_pattern, txt_content, re.DOTALL)
-        parsed_logs = [json.loads(log) for log in event_logs]
+        parsed_logs = []
+        
+        # Store original log entries for download feature
+        original_logs = {}
+        
+        for log in event_logs:
+            try:
+                parsed_log = json.loads(log)
+                # Handle Single Event format
+                if 'eventName' in parsed_log:
+                    # If the log already has eventName, use it directly
+                    event_name = parsed_log['eventName'].lower()  # Convert to lowercase
+                    parsed_log['eventName'] = event_name
+                    parsed_log['payload'] = parsed_log.get('payload', {})
+                    # Store the original log entry
+                    original_logs[event_name] = f"Event Payload: {log}"
+                elif 'event' in parsed_log:
+                    # Handle old Single Event format
+                    event_name = parsed_log['event'].lower()  # Convert to lowercase
+                    parsed_log['eventName'] = event_name
+                    parsed_log['payload'] = parsed_log.get('data', {})
+                    # Store the original log entry
+                    original_logs[event_name] = f"Event Payload: {log}"
+                parsed_logs.append(parsed_log)
+            except json.JSONDecodeError:
+                continue
 
         # Map event names to payloads
         event_payload_map = {
             log.get("eventName"): log.get("payload", {}) for log in parsed_logs
         }
-
+        
         # Validate the data
         results = []
         for event_name, validations in event_validations.items():
             payload = event_payload_map.get(event_name, {})
+            
+            # Check if event name is present in the logs
+            if event_name not in event_payload_map:
+                # Event name from CSV is not present in the logs
+                results.append({
+                    'eventName': event_name,
+                    'key': 'EVENT_NAME',
+                    'value': event_name,
+                    'expectedType': 'event',
+                    'receivedType': 'not present in logs',
+                    'validationStatus': 'Event name not present in the logs',
+                    'comment': f'Event "{event_name}" from CSV was not found in the uploaded log file'
+                })
+                # Skip further validation for this event since it's not in the logs
+                continue
+            
+            # Check required fields first
+            required_results = validate_required_fields(payload, validations)
+            results.extend(required_results)
 
-            if "items" in payload and isinstance(payload["items"], list):
-                regular_validations = validate_array_of_objects(payload["items"], validations, event_name, results)
+            # Check conditional validations
+            for validation in validations:
+                is_valid, error_msg = validate_conditional_fields(payload, validation)
+                if not is_valid:
+                    results.append({
+                        'eventName': event_name,
+                        'key': validation['key'],
+                        'value': None,
+                        'expectedType': validation['expectedType'],
+                        'receivedType': 'invalid',
+                        'validationStatus': error_msg
+                    })
+
+            # Check for array fields in the payload
+            array_fields = {k: v for k, v in payload.items() if isinstance(v, list)}
+            if array_fields:
+                regular_validations = validate_array_of_objects(payload, validations, event_name, results)
                 
                 # Validate regular fields (non-array fields)
-                normalized_payload = {normalize_key(k): v for k, v in payload.items() if k != "items"}
+                normalized_payload = {normalize_key(k): v for k, v in payload.items() if k not in array_fields}
                 
                 # Check for extra keys in regular fields
                 extra_keys = set(normalized_payload.keys()) - set([normalize_key(v['key']) for v in regular_validations])
@@ -299,7 +480,7 @@ def upload():
                         'value': value,
                         'expectedType': 'EXTRA',
                         'receivedType': get_value_type(value),
-                        'validationStatus': 'Extra key present in the log'
+                        'validationStatus': 'Extra key OR Key spelling mismatch in the event payload'
                     })
 
                 # Validate regular fields
@@ -353,7 +534,7 @@ def upload():
                         'value': value,
                         'expectedType': 'EXTRA',
                         'receivedType': get_value_type(value),
-                        'validationStatus': 'Extra key present in the log'
+                        'validationStatus': 'Extra key OR Key spelling mismatch in the event payload'
                     })
 
                 for validation in validations:
@@ -398,6 +579,47 @@ def upload():
                             'validationStatus': status
                         })
 
+        # Calculate event counts
+        csv_events = set(event_validations.keys())
+        log_events = set(event_payload_map.keys())
+        
+        # Add validation entries for extra events (events in logs but not in CSV)
+        extra_events = log_events - csv_events
+        for extra_event in extra_events:
+            payload = event_payload_map.get(extra_event, {})
+            results.append({
+                'eventName': extra_event,
+                'key': 'EVENT_NAME',
+                'value': extra_event,
+                'expectedType': 'event',
+                'receivedType': 'extra event in logs',
+                'validationStatus': 'Extra event present in logs',
+                'comment': f'Event "{extra_event}" found in logs but not defined in CSV validation rules'
+            })
+            
+            # Also add entries for all fields in the extra event's payload
+            if payload:
+                for key, value in payload.items():
+                    results.append({
+                        'eventName': extra_event,
+                        'key': key,
+                        'value': value,
+                        'expectedType': 'EXTRA_EVENT_FIELD',
+                        'receivedType': get_value_type(value),
+                        'validationStatus': 'Field from extra event',
+                        'comment': f'Field from event "{extra_event}" which is not defined in CSV validation rules'
+                    })
+        
+        # Log validation results
+        log_validation_event('validation_complete', {
+            'total_validations': len(results),
+            'valid_count': sum(1 for r in results if r['validationStatus'] == 'Valid'),
+            'invalid_count': sum(1 for r in results if r['validationStatus'] != 'Valid'),
+            'csv_events_count': len(csv_events),
+            'log_events_count': len(log_events),
+            'extra_events_count': len(extra_events)
+        })
+
         # After results are generated, compute fully valid events
         event_payloads = defaultdict(list)
         for r in results:
@@ -406,14 +628,344 @@ def upload():
             event for event, statuses in event_payloads.items()
             if all(status == 'Valid' for status in statuses)
         ]
-        # Return results and fully valid events
-        return jsonify({
+
+        # Return results with event count information
+        response_data = {
             'results': results,
-            'fully_valid_events': fully_valid_events
-        })
+            'summary': {
+                'csv_events_count': len(csv_events),
+                'log_events_count': len(log_events),
+                'csv_events': list(csv_events),
+                'log_events': list(log_events),
+                'extra_events': list(extra_events)
+            },
+            'fully_valid_events': fully_valid_events,
+            'original_logs': original_logs # Add original_logs to the response
+        }
+        
+        return jsonify(response_data)
 
     except Exception as e:
-        return f"Error processing files: {e}", 500
+        app.logger.error(f'Error processing files: {str(e)}')
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/filter', methods=['POST', 'OPTIONS'])
+def filter_results():
+    app.logger.info('Filter endpoint called')
+    if request.method == 'OPTIONS':
+        return '', 200
+        
+    try:
+        data = request.get_json()
+        app.logger.info(f'Filter data received: {data}')
+        
+        results = data.get('results', [])
+        filters = data.get('filters', {})
+        sort_by = data.get('sort_by')
+        sort_order = data.get('sort_order', 'asc')
+        date_range = data.get('date_range', {})
+        search_term = data.get('search_term', '').lower()
+        
+        # Apply filters
+        filtered_results = results
+        if filters:
+            for field, values in filters.items():
+                if values and isinstance(values, list) and len(values) > 0:
+                    if field == 'search_term':
+                        filtered_results = [
+                            r for r in filtered_results 
+                            if any(search_term in str(v).lower() for v in r.values())
+                        ]
+                    else:
+                        filtered_results = [
+                            r for r in filtered_results 
+                            if str(r.get(field, '')).lower() in [str(v).lower() for v in values]
+                        ]
+        
+        # Apply date range filter
+        if date_range:
+            start_date = datetime.fromisoformat(date_range.get('start', ''))
+            end_date = datetime.fromisoformat(date_range.get('end', ''))
+            filtered_results = [
+                r for r in filtered_results 
+                if r.get('expectedType') == 'date' and 
+                start_date <= datetime.fromisoformat(r.get('value', '')) <= end_date
+            ]
+        
+        # Apply sorting
+        if sort_by:
+            filtered_results.sort(
+                key=lambda x: str(x.get(sort_by, '')).lower(),
+                reverse=(sort_order == 'desc')
+            )
+        
+        app.logger.info(f'Filtered results count: {len(filtered_results)}')
+        return jsonify(filtered_results)
+    except Exception as e:
+        app.logger.error(f'Error in filter endpoint: {str(e)}')
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/validate-website-logs', methods=['POST', 'OPTIONS'])
+def validate_website_logs():
+    app.logger.info('Website logs validation endpoint called')
+    if request.method == 'OPTIONS':
+        return '', 200
+        
+    if 'csv_file' not in request.files or 'txt_file' not in request.files:
+        return jsonify({"error": "Both CSV and TXT files are required"}), 400
+
+    try:
+        # Log file upload
+        log_validation_event('website_logs_upload', {
+            'csv_file': request.files['csv_file'].filename,
+            'txt_file': request.files['txt_file'].filename,
+            'timestamp': datetime.now().isoformat()
+        })
+
+        # Parse the CSV file (same as before)
+        csv_file = request.files['csv_file']
+        csv_file.stream.seek(0)
+        csv_reader = csv.DictReader(csv_file.stream.read().decode('utf-8').splitlines())
+        
+        # Group CSV rows by eventName with case normalization
+        event_validations = parse_csv_with_case_normalization(csv_reader)
+
+        # Parse the TXT file for website logs format
+        txt_file = request.files['txt_file']
+        txt_file.stream.seek(0)
+        txt_content = txt_file.stream.read().decode('utf-8')
+        
+        # Parse each line as a separate JSON object
+        parsed_logs = []
+        lines = txt_content.strip().split('\n')
+        
+        # Store original log entries for download feature
+        original_logs = {}
+        
+        for line_num, line in enumerate(lines, 1):
+            line = line.strip()
+            if not line:
+                continue
+                
+            try:
+                log_entry = json.loads(line)
+                
+                # Extract event name and payload from website log format
+                event_name = log_entry.get('eventname')
+                payload = log_entry.get('payload', {})
+                
+                if event_name:
+                    event_name_lower = event_name.lower()  # Convert to lowercase
+                    parsed_logs.append({
+                        'eventName': event_name_lower,
+                        'payload': payload,
+                        'line_number': line_num,
+                        'full_log': log_entry
+                    })
+                    # Store the original log line
+                    original_logs[event_name_lower] = line
+                else:
+                    # Log warning for entries without eventname
+                    app.logger.warning(f'Line {line_num}: Missing eventname in log entry')
+                    
+            except json.JSONDecodeError as e:
+                app.logger.warning(f'Line {line_num}: Invalid JSON format - {str(e)}')
+                continue
+
+        # Return similar response structure as regular upload
+        response_data = {
+            'results': [],  # Placeholder for now - full implementation would be similar to upload
+            'summary': {
+                'csv_events_count': len(event_validations),
+                'log_events_count': len(set(log['eventName'] for log in parsed_logs)),
+                'csv_events': list(event_validations.keys()),
+                'log_events': list(set(log['eventName'] for log in parsed_logs)),
+                'extra_events': []
+            },
+            'fully_valid_events': [],
+            'original_logs': original_logs
+        }
+        
+        return jsonify(response_data)
+
+    except Exception as e:
+        app.logger.error(f'Error processing website log files: {str(e)}')
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/validate-website-logs-v2', methods=['POST', 'OPTIONS'])
+def validate_website_logs_v2():
+    app.logger.info('Website logs v2 validation endpoint called')
+    if request.method == 'OPTIONS':
+        return '', 200
+        
+    if 'csv_file' not in request.files or 'txt_file' not in request.files:
+        return jsonify({"error": "Both CSV and TXT files are required"}), 400
+
+    try:
+        # Similar structure as website-logs but with different parsing logic
+        response_data = {
+            'results': [],
+            'summary': {
+                'csv_events_count': 0,
+                'log_events_count': 0,
+                'csv_events': [],
+                'log_events': [],
+                'extra_events': []
+            },
+            'fully_valid_events': [],
+            'original_logs': {}
+        }
+        
+        return jsonify(response_data)
+
+    except Exception as e:
+        app.logger.error(f'Error processing website log v2 files: {str(e)}')
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/download', methods=['POST', 'OPTIONS'])
+def download_results():
+    app.logger.info('Download endpoint called')
+    if request.method == 'OPTIONS':
+        return '', 200
+        
+    try:
+        data = request.get_json()
+        app.logger.info('Download data received')
+        
+        results = data.get('results', [])
+        
+        # Create CSV content
+        output = io.StringIO()
+        writer = csv.DictWriter(output, fieldnames=['eventName', 'key', 'value', 'expectedType', 'receivedType', 'validationStatus', 'comment'])
+        writer.writeheader()
+        
+        # Add comments to results if not present and prepare clean results for CSV
+        clean_results = []
+        for result in results:
+            # Create a clean copy without line_number
+            clean_result = {
+                'eventName': result.get('eventName', ''),
+                'key': result.get('key', ''),
+                'value': result.get('value', ''),
+                'expectedType': result.get('expectedType', ''),
+                'receivedType': result.get('receivedType', ''),
+                'validationStatus': result.get('validationStatus', ''),
+                'comment': result.get('comment', '')
+            }
+            
+            # Add comment if not present
+            if not clean_result['comment']:
+                if clean_result['validationStatus'] == 'Valid':
+                    clean_result['comment'] = 'Field validation passed'
+                elif clean_result['validationStatus'] == 'Invalid/Wrong datatype/value':
+                    clean_result['comment'] = f"Expected type: {clean_result['expectedType']}, Received type: {clean_result['receivedType']}"
+                elif clean_result['validationStatus'] == 'Payload value is Empty':
+                    clean_result['comment'] = 'Field value is empty or null'
+                elif clean_result['validationStatus'] == 'Extra key present in the log':
+                    clean_result['comment'] = 'This field was not expected in the validation rules'
+                elif clean_result['validationStatus'] == 'Payload not present in the log':
+                    clean_result['comment'] = 'Field is missing in the payload'
+                elif clean_result['validationStatus'] == 'Event name not present in the logs':
+                    clean_result['comment'] = f'Event "{clean_result["eventName"]}" from CSV was not found in the uploaded log file'
+                elif clean_result['validationStatus'] == 'Extra event present in logs':
+                    clean_result['comment'] = f'Event "{clean_result["eventName"]}" found in logs but not defined in CSV validation rules'
+                elif clean_result['validationStatus'] == 'Field from extra event':
+                    clean_result['comment'] = f'Field from event "{clean_result["eventName"]}" which is not defined in CSV validation rules'
+                else:
+                    clean_result['comment'] = clean_result['validationStatus']
+            
+            clean_results.append(clean_result)
+        
+        writer.writerows(clean_results)
+        
+        # Create response
+        output.seek(0)
+        app.logger.info('CSV file generated successfully')
+        return Response(
+            output,
+            mimetype='text/csv',
+            headers={
+                'Content-Disposition': 'attachment; filename=validation_results.csv',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type'
+            }
+        )
+    except Exception as e:
+        app.logger.error(f'Error in download endpoint: {str(e)}')
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/download-valid-events', methods=['POST', 'OPTIONS'])
+def download_valid_events():
+    app.logger.info('Download valid events endpoint called')
+    if request.method == 'OPTIONS':
+        return '', 200
+        
+    try:
+        data = request.get_json()
+        app.logger.info('Download valid events data received')
+        
+        results = data.get('results', [])
+        logs_data = data.get('logs_data', {})
+        
+        # Create CSV content for valid events
+        output = io.StringIO()
+        writer = csv.writer(output, delimiter='\t')
+        
+        # Write header
+        writer.writerow(['eventName', 'eventPayload', 'dataType', 'Logs'])
+        
+        # Group by eventName
+        event_groups = {}
+        for result in results:
+            event_name = result['eventName']
+            if event_name not in event_groups:
+                event_groups[event_name] = []
+            event_groups[event_name].append(result)
+        
+        # Write data rows for all events
+        for event_name, event_results in event_groups.items():
+            # Check if this event is fully valid
+            all_valid = all(r['validationStatus'] == 'Valid' for r in event_results)
+            log_entry = logs_data.get(event_name, '')
+            
+            if event_results:
+                first_result = event_results[0]
+                logs_content = log_entry if all_valid else "need to validate further"
+                
+                writer.writerow([
+                    first_result['eventName'],
+                    first_result['key'],
+                    first_result['expectedType'],
+                    logs_content
+                ])
+                
+                for result in event_results[1:]:
+                    writer.writerow([
+                        "",
+                        result['key'],
+                        result['expectedType'],
+                        ""
+                    ])
+        
+        # Create response
+        output.seek(0)
+        app.logger.info('Valid events CSV file generated successfully')
+        return Response(
+            output,
+            mimetype='text/csv',
+            headers={
+                'Content-Disposition': 'attachment; filename=valid_events_report.csv',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Methods': 'POST, OPTIONS',
+                'Access-Control-Allow-Headers': 'Content-Type'
+            }
+        )
+    except Exception as e:
+        app.logger.error(f'Error in download valid events endpoint: {str(e)}')
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    import os
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port, debug=True)
