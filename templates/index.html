@@ -168,7 +168,7 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
-                        <a class="btn btn-primary" href="https://contact-api-netcore-beta-0-16.onrender.com/" target="_blank">Trigger Activity API</a>
+                        <a class="btn btn-primary" href="https://contact-api-via-csv-7e94e.web.app/" target="_blank">Trigger Activity API</a>
                     </li>
                 </ul>
             </div>
@@ -221,38 +221,40 @@
                         <input type="file" class="form-control" id="txtFile" name="txt_file" accept=".txt" required>
                         <div class="mt-2 sample-downloads">
                             <!-- Regular mode sample -->
-                            <a href="/download_sample_log/regular" class="btn btn-outline-secondary btn-sm sample-download regular-mode">
+                            <button class="btn btn-outline-secondary btn-sm sample-download regular-mode download-btn" data-mode="regular">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download me-1" viewBox="0 0 16 16">
                                     <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
                                     <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
                                 </svg>
                                 Download Regular Sample Log
-                            </a>
+                            </button>
                             <!-- Website mode sample -->
-                            <a href="/download_sample_log/website" class="btn btn-outline-secondary btn-sm sample-download website-mode" style="display: none;">
+                            <button class="btn btn-outline-secondary btn-sm sample-download website-mode download-btn" data-mode="website" style="display: none;">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download me-1" viewBox="0 0 16 16">
                                     <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
                                     <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
                                 </svg>
                                 Download Website Sample Log
-                            </a>
+                            </button>
                             <!-- Website V2 mode samples -->
                             <div class="v2-mode-downloads" style="display: none;">
-                                <a href="/download_sample_log/website-v2" class="btn btn-outline-secondary btn-sm mb-1">
+                                <button class="btn btn-outline-secondary btn-sm mb-1 download-btn" data-mode="website-v2" data-multiline="false">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download me-1" viewBox="0 0 16 16">
                                         <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
                                         <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
                                     </svg>
                                     Download Website V2 Sample Log
-                                </a>
-                                <a href="/download_sample_log/website-v2?multiline=true" class="btn btn-outline-secondary btn-sm">
+                                </button>
+                                <br>
+                                <button class="btn btn-outline-secondary btn-sm download-btn" data-mode="website-v2" data-multiline="true">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download me-1" viewBox="0 0 16 16">
                                         <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
                                         <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
                                     </svg>
                                     Download Website V2 Multiline Sample
-                                </a>
+                                </button>
                             </div>
+                            <div id="downloadError" class="alert alert-danger mt-2" style="display: none;"></div>
                         </div>
                     </div>
                     <button type="submit" class="btn btn-primary">Validate</button>
@@ -484,23 +486,31 @@
                 success: function(response) {
                     console.log('Upload response:', response);
                     
+                    // Ensure response is properly initialized
+                    currentResults = [];
+                    currentSummary = {
+                        csv_events_count: 0,
+                        log_events_count: 0,
+                        csv_events: [],
+                        log_events: []
+                    };
+                    window.originalLogs = {};
+                    
                     // Handle both old and new response formats
-                    if (response.results && response.summary) {
+                    if (response && response.results && Array.isArray(response.results)) {
                         // New format with summary
                         currentResults = response.results;
-                        currentSummary = response.summary;
-                        // Store original logs for download feature
-                        window.originalLogs = response.original_logs || {};
-                    } else {
+                        if (response.summary) {
+                            currentSummary = response.summary;
+                        }
+                        if (response.original_logs) {
+                            window.originalLogs = response.original_logs;
+                        }
+                    } else if (Array.isArray(response)) {
                         // Old format - just results array
                         currentResults = response;
-                        currentSummary = {
-                            csv_events_count: 0,
-                            log_events_count: 0,
-                            csv_events: [],
-                            log_events: []
-                        };
-                        window.originalLogs = {};
+                    } else {
+                        console.error('Invalid response format:', response);
                     }
                     
                     updateEventSummary();
@@ -526,6 +536,58 @@
         });
 
         // Initialize filter dropdowns
+        // Handle sample file downloads
+        $('.download-btn').click(function() {
+            const mode = $(this).data('mode');
+            const multiline = $(this).data('multiline') || false;
+            let url = `/download_sample_log/${mode}`;
+            if (mode === 'website-v2' && multiline) {
+                url += '?multiline=true';
+            }
+
+            // Show loading state
+            $(this).prop('disabled', true);
+            $(this).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Downloading...');
+            const button = $(this);
+
+            fetch(url)
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(err => Promise.reject(err));
+                    }
+                    return response.blob();
+                })
+                .then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    let filename = 'sample_log.txt';
+                    if (mode === 'website') {
+                        filename = 'sample_website_logs.txt';
+                    } else if (mode === 'website-v2') {
+                        filename = multiline ? 'sample_website_logs_v2_multiline.txt' : 'sample_website_logs_v2.txt';
+                    }
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    a.remove();
+                    $('#downloadError').hide();
+                })
+                .catch(error => {
+                    console.error('Download error:', error);
+                    $('#downloadError').text(error.error || 'Error downloading file. Please try again.').show();
+                })
+                .finally(() => {
+                    // Restore button state
+                    button.prop('disabled', false);
+                    const svg = button.find('svg').prop('outerHTML');
+                    button.html(svg + ' Download ' + (mode === 'website-v2' ? 
+                        (multiline ? 'Website V2 Multiline Sample' : 'Website V2 Sample Log') : 
+                        (mode === 'website' ? 'Website Sample Log' : 'Regular Sample Log')));
+                });
+        });
+
         $(document).ready(function() {
             $('.filter-header').click(function(e) {
                 e.stopPropagation();

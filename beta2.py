@@ -38,21 +38,35 @@ def download_template():
 @app.route('/download_sample_log/<mode>', methods=['GET'])
 def download_sample_log(mode):
     """Download a sample log file based on validation mode"""
-    if mode == 'regular':
-        filename = 'samplelog_android.txt'
-    elif mode == 'website':
-        filename = 'sample_website_logs.txt'
-    elif mode == 'website-v2':
-        # Return v2 or multiline based on query parameter
-        is_multiline = request.args.get('multiline', 'false').lower() == 'true'
-        filename = 'sample_website_logs_v2_multiline.txt' if is_multiline else 'sample_website_logs_v2.txt'
-    else:
-        return jsonify({"error": "Invalid mode"}), 400
+    try:
+        if mode == 'regular':
+            filename = 'samplelog_android.txt'
+        elif mode == 'website':
+            filename = 'sample_website_logs.txt'
+        elif mode == 'website-v2':
+            # Return v2 or multiline based on query parameter
+            is_multiline = request.args.get('multiline', 'false').lower() == 'true'
+            filename = 'sample_website_logs_v2_multiline.txt' if is_multiline else 'sample_website_logs_v2.txt'
+        else:
+            return jsonify({"error": "Invalid mode"}), 400
         
-    return send_file(filename,
-                    mimetype='text/plain',
-                    as_attachment=True,
-                    download_name=filename)
+        # Get the absolute path to the file
+        file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), filename)
+        
+        if not os.path.exists(file_path):
+            app.logger.error(f'Sample file not found: {file_path}')
+            return jsonify({"error": f"Sample file {filename} not found"}), 404
+            
+        app.logger.info(f'Sending sample file: {file_path}')
+        return send_file(
+            file_path,
+            mimetype='text/plain',
+            as_attachment=True,
+            download_name=filename
+        )
+    except Exception as e:
+        app.logger.error(f'Error sending sample file: {str(e)}')
+        return jsonify({"error": str(e)}), 500
 
 @app.before_request
 def log_request_info():
