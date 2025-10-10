@@ -16,7 +16,7 @@ user_profile_push,seat_type,text
 ,experience,text
 ,amount,float
 clicked,revenue,float
-product_purchase,items[].variant_id,text
+product_purchase,items[].variant_id,text, NOTE: ARRAY PAYLOAD. PLEASE DONT ADD THIS ROW IN THE ACTUAL SHEET
 ,items[].prname,text
 ,items[].price,float
 ,items[].prid,text

@@ -7,11 +7,53 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css" rel="stylesheet">
     <style>
+        :root {
+            --primary-color: #e35502;
+            --header-bg: #230f2e;
+        }
+        
         .container { margin-top: 30px; }
         .table-container { margin-top: 20px; }
         .filter-container { margin: 20px 0; }
         .hidden { display: none; }
         .first-event { color: blue; }
+        
+        /* Header styling */
+        .navbar {
+            background-color: var(--header-bg) !important;
+        }
+        
+        .navbar-brand, .navbar-nav .nav-link {
+            color: white !important;
+        }
+        
+        .navbar-toggler {
+            border-color: rgba(255,255,255,0.5);
+        }
+        
+        .navbar-toggler-icon {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.75%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+        }
+        
+        /* Button styling */
+        .btn-primary {
+            background-color: var(--primary-color) !important;
+            border-color: var(--primary-color) !important;
+        }
+        
+        .btn-primary:hover {
+            background-color: #c64802 !important;
+            border-color: #c64802 !important;
+        }
+        
+        .btn-outline-primary {
+            color: white !important;
+            border-color: white !important;
+        }
+        
+        .btn-outline-primary:hover {
+            background-color: rgba(255,255,255,0.1) !important;
+        }
         .null-value { background-color: yellow; }
         .valid-status { color: green; }
         .invalid-status { color: red; }
@@ -119,7 +161,7 @@
 <body>
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
         <div class="container-fluid">
-            <a class="navbar-brand" href="#">Payload Validator</a>
+            <a class="navbar-brand" href="#">Netcore Event Payload Validator</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -143,7 +185,7 @@
                     <div class="form-check">
                         <input class="form-check-input" type="radio" name="validationMode" id="regularMode" value="regular" checked>
                         <label class="form-check-label" for="regularMode">
-                            Regular Event Validation (Single Event/Event Payload format)
+                            Android and iOS Event (Single Event/Event Payload format)
                         </label>
                     </div>
                     <div class="form-check">
@@ -164,10 +206,54 @@
                     <div class="mb-3">
                         <label for="csvFile" class="form-label">CSV File (Validation Rules)</label>
                         <input type="file" class="form-control" id="csvFile" name="csv_file" accept=".csv" required>
+                        <div class="mt-2">
+                            <a href="/download_template" class="btn btn-outline-secondary btn-sm">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download me-1" viewBox="0 0 16 16">
+                                    <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                                    <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+                                </svg>
+                                Download Sample Template
+                            </a>
+                        </div>
                     </div>
                     <div class="mb-3">
                         <label for="txtFile" class="form-label">TXT File (Event Logs)</label>
                         <input type="file" class="form-control" id="txtFile" name="txt_file" accept=".txt" required>
+                        <div class="mt-2 sample-downloads">
+                            <!-- Regular mode sample -->
+                            <a href="/download_sample_log/regular" class="btn btn-outline-secondary btn-sm sample-download regular-mode">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download me-1" viewBox="0 0 16 16">
+                                    <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                                    <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+                                </svg>
+                                Download Regular Sample Log
+                            </a>
+                            <!-- Website mode sample -->
+                            <a href="/download_sample_log/website" class="btn btn-outline-secondary btn-sm sample-download website-mode" style="display: none;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download me-1" viewBox="0 0 16 16">
+                                    <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                                    <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+                                </svg>
+                                Download Website Sample Log
+                            </a>
+                            <!-- Website V2 mode samples -->
+                            <div class="v2-mode-downloads" style="display: none;">
+                                <a href="/download_sample_log/website-v2" class="btn btn-outline-secondary btn-sm mb-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download me-1" viewBox="0 0 16 16">
+                                        <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                                        <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+                                    </svg>
+                                    Download Website V2 Sample Log
+                                </a>
+                                <a href="/download_sample_log/website-v2?multiline=true" class="btn btn-outline-secondary btn-sm">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download me-1" viewBox="0 0 16 16">
+                                        <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+                                        <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+                                    </svg>
+                                    Download Website V2 Multiline Sample
+                                </a>
+                            </div>
+                        </div>
                     </div>
                     <button type="submit" class="btn btn-primary">Validate</button>
                 </form>
@@ -351,6 +437,22 @@
         $('#dateRange').on('cancel.daterangepicker', function(ev, picker) {
             $(this).val('');
             applyFilters();
+        });
+
+        // Handle validation mode changes
+        $('input[name="validationMode"]').change(function() {
+            const mode = $(this).val();
+            // Hide all sample download buttons first
+            $('.sample-download, .v2-mode-downloads').hide();
+            
+            // Show the appropriate download button based on mode
+            if (mode === 'regular') {
+                $('.sample-download.regular-mode').show();
+            } else if (mode === 'website') {
+                $('.sample-download.website-mode').show();
+            } else if (mode === 'website-v2') {
+                $('.v2-mode-downloads').show();
+            }
         });
 
         $('#uploadForm').on('submit', function(e) {

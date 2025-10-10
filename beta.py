@@ -1,13 +1,30 @@
-from flask import Flask, request, render_template, jsonify, Response
+from flask import Flask, request, render_template, jsonify, Response, send_file
 from flask_cors import CORS
 import csv
 import json
 import re
+import os
 from io import StringIO
 from collections import defaultdict
 
 app = Flask(__name__)
 CORS(app)
+
+@app.route('/download_template', methods=['GET'])
+def download_template():
+    """Download a sample CSV template"""
+    return send_file('sample.csv',
+                    mimetype='text/csv',
+                    as_attachment=True,
+                    download_name='sample_template.csv')
+
+@app.route('/download_sample_log', methods=['GET'])
+def download_sample_log():
+    """Download a sample log file"""
+    return send_file('sample_website_logs.txt',
+                    mimetype='text/plain',
+                    as_attachment=True,
+                    download_name='sample_log.txt')
 
 def generate_comment(validation_status):
     if validation_status == "Extra key present in the log":

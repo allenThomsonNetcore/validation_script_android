@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, jsonify, Response, send_from_directory
+from flask import Flask, request, render_template, jsonify, Response, send_from_directory, send_file
 from flask_cors import CORS
 import csv
 import json
@@ -27,6 +27,33 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 # Enable debug mode
 app.debug = True
 
+@app.route('/download_template', methods=['GET'])
+def download_template():
+    """Download a sample CSV template"""
+    return send_file('sample.csv',
+                    mimetype='text/csv',
+                    as_attachment=True,
+                    download_name='sample_template.csv')
+
+@app.route('/download_sample_log/<mode>', methods=['GET'])
+def download_sample_log(mode):
+    """Download a sample log file based on validation mode"""
+    if mode == 'regular':
+        filename = 'samplelog_android.txt'
+    elif mode == 'website':
+        filename = 'sample_website_logs.txt'
+    elif mode == 'website-v2':
+        # Return v2 or multiline based on query parameter
+        is_multiline = request.args.get('multiline', 'false').lower() == 'true'
+        filename = 'sample_website_logs_v2_multiline.txt' if is_multiline else 'sample_website_logs_v2.txt'
+    else:
+        return jsonify({"error": "Invalid mode"}), 400
+        
+    return send_file(filename,
+                    mimetype='text/plain',
+                    as_attachment=True,
+                    download_name=filename)
+
 @app.before_request
 def log_request_info():
     app.logger.info('Headers: %s', request.headers)
@@ -37,7 +64,16 @@ def log_request_info():
 
 @app.after_request
 def after_request(response):
-    app.logger.info('Response: %s', response.get_data())
+    if response.direct_passthrough:
+        # For file responses, just log the content type and headers
+        app.logger.info('Response: [File Response] Content-Type: %s, Headers: %s', 
+                       response.content_type, dict(response.headers))
+    else:
+        # For regular responses, log the data
+        try:
+            app.logger.info('Response: %s', response.get_data())
+        except Exception as e:
+            app.logger.warning('Could not log response data: %s', str(e))
     return response
 
 @app.errorhandler(404)
