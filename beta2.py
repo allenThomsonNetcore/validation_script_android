@@ -1446,7 +1446,7 @@ def download_results():
                 elif clean_result['validationStatus'] == 'Payload value is Empty':
                     clean_result['comment'] = 'Field value is empty or null'
                 elif clean_result['validationStatus'] == 'Extra key present in the log':
-                    clean_result['comment'] = 'This field was not expected in the validation rules'
+                    clean_result['comment'] = 'This is an EXTRA payload or there is a spelling mistake with the required payload'
                 elif clean_result['validationStatus'] == 'Payload not present in the log':
                     clean_result['comment'] = 'Field is missing in the payload'
                 elif clean_result['validationStatus'] == 'Event name not present in the logs':
