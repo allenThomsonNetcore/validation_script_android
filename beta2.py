@@ -6,6 +6,10 @@ import re
 import io
 import logging
 import os
+import requests
+from queue import Queue, Empty
+import threading
+import time
 from datetime import datetime
 from typing import Dict, List, Tuple
 from collections import defaultdict
@@ -26,6 +30,8 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 
 # Enable debug mode
 app.debug = True
+
+# Live webhook validation storage and SSE clients
 
 @app.route('/download_template', methods=['GET'])
 def download_template():
@@ -103,6 +109,7 @@ def internal_error(error):
 def log_validation_event(event_type: str, details: Dict):
     """Log validation events for audit purposes"""
     logging.info(f"{event_type}: {json.dumps(details)}")
+
 
 def get_value_type(value):
     """Determine the actual type of a value"""
@@ -366,17 +373,23 @@ def upload():
     app.logger.info('Upload endpoint called')
     if request.method == 'OPTIONS':
         return '', 200
-        
-    if 'csv_file' not in request.files or 'txt_file' not in request.files:
-        return jsonify({"error": "Both CSV and TXT files are required"}), 400
+
+    if 'csv_file' not in request.files:
+        return jsonify({"error": "CSV file is required"}), 400
+    if 'txt_file' not in request.files and 'manual_log' not in request.form:
+        return jsonify({"error": "TXT file or manual log input is required"}), 400
 
     try:
         # Log file upload
-        log_validation_event('file_upload', {
+        log_details = {
             'csv_file': request.files['csv_file'].filename,
-            'txt_file': request.files['txt_file'].filename,
             'timestamp': datetime.now().isoformat()
-        })
+        }
+        if 'txt_file' in request.files:
+            log_details['txt_file'] = request.files['txt_file'].filename
+        elif 'manual_log' in request.form:
+            log_details['manual_log'] = 'manual_log_input'
+        log_validation_event('file_upload', log_details)
 
         # Parse the CSV file
         csv_file = request.files['csv_file']
@@ -385,11 +398,20 @@ def upload():
         
         # Group CSV rows by eventName with case normalization
         event_validations = parse_csv_with_case_normalization(csv_reader)
+        
+        # No webhook/SSE logic, just proceed
+        # (no-op)
 
-        # Parse the TXT file
-        txt_file = request.files['txt_file']
-        txt_file.stream.seek(0)
-        txt_content = txt_file.stream.read().decode('utf-8')
+        # Parse the TXT file or manual log
+        if 'txt_file' in request.files:
+            txt_file = request.files['txt_file']
+            txt_file.stream.seek(0)
+            txt_content = txt_file.stream.read().decode('utf-8')
+        elif 'manual_log' in request.form:
+            txt_content = request.form['manual_log']
+        else:
+            return jsonify({"error": "TXT file or manual log input is required"}), 400
+
         event_pattern = r"(?:Single Event|Event Payload|Web Event): (\{.*?\})(?=\s*(?:Single Event|Event Payload|Web Event):|$)"
 
         event_logs = re.findall(event_pattern, txt_content, re.DOTALL)

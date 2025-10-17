@@ -180,7 +180,7 @@
         <div class="container-fluid">
             <a class="navbar-brand d-flex align-items-center" href="#">
                 <img src="/static/netcore_logo.png" alt="Netcore Logo" height="40" class="me-2">
-                <span>Netcore Event Payload Validator</span>
+                <span> Payload Validator</span>
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
@@ -220,63 +220,71 @@
                             Website Logs V2 Validation (JSON lines format with event key and system fields excluded)
                         </label>
                     </div>
+                    <!-- Webhook mode removed -->
                 </div>
                 
                 <form id="uploadForm" enctype="multipart/form-data">
                     <div class="mb-3">
                         <label for="csvFile" class="form-label">CSV File (Validation Rules)</label>
                         <input type="file" class="form-control" id="csvFile" name="csv_file" accept=".csv" required>
-                        <div class="mt-2">
-                            <a href="/download_template" class="btn btn-outline-secondary btn-sm">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download me-1" viewBox="0 0 16 16">
-                                    <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
-                                    <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
-                                </svg>
-                                Download Sample Template
-                            </a>
-                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label for="txtFile" class="form-label">TXT File (Event Logs)</label>
-                        <input type="file" class="form-control" id="txtFile" name="txt_file" accept=".txt" required>
-                        <div class="mt-2 sample-downloads">
-                            <!-- Regular mode sample -->
-                            <button class="btn btn-outline-secondary btn-sm sample-download regular-mode download-btn" data-mode="regular">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download me-1" viewBox="0 0 16 16">
-                                    <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
-                                    <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
-                                </svg>
-                                Download Regular Sample Log
-                            </button>
-                            <!-- Website mode sample -->
-                            <button class="btn btn-outline-secondary btn-sm sample-download website-mode download-btn" data-mode="website" style="display: none;">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download me-1" viewBox="0 0 16 16">
-                                    <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
-                                    <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
-                                </svg>
-                                Download Website Sample Log
-                            </button>
-                            <!-- Website V2 mode samples -->
-                            <div class="v2-mode-downloads" style="display: none;">
-                                <button class="btn btn-outline-secondary btn-sm mb-1 download-btn" data-mode="website-v2" data-multiline="false">
+                    <div class="mb-3" id="logInputContainer">
+                        <label class="form-label">Event Logs Input</label>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="logInputMode" id="logInputFile" value="file" checked>
+                            <label class="form-check-label" for="logInputFile">Upload TXT File</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="logInputMode" id="logInputPaste" value="paste">
+                            <label class="form-check-label" for="logInputPaste">Paste Logs Manually</label>
+                        </div>
+                        <div id="txtFileInputWrapper" class="mt-2">
+                            <label for="txtFile" class="form-label">TXT File (Event Logs)</label>
+                            <input type="file" class="form-control" id="txtFile" name="txt_file" accept=".txt">
+                            <div class="mt-2 sample-downloads">
+                                <!-- Regular mode sample -->
+                                <button class="btn btn-outline-secondary btn-sm sample-download regular-mode download-btn" data-mode="regular">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download me-1" viewBox="0 0 16 16">
-                                        <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
-                                        <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+                                        <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"></path>
+                                        <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"></path>
                                     </svg>
-                                    Download Website V2 Sample Log
+                                    Download Regular Sample Log
                                 </button>
-                                <br>
-                                <button class="btn btn-outline-secondary btn-sm download-btn" data-mode="website-v2" data-multiline="true">
+                                <!-- Website mode sample -->
+                                <button class="btn btn-outline-secondary btn-sm sample-download website-mode download-btn" data-mode="website" style="display: none;">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download me-1" viewBox="0 0 16 16">
-                                        <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
-                                        <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+                                        <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"></path>
+                                        <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"></path>
                                     </svg>
-                                    Download Website V2 Multiline Sample
+                                    Download Website Sample Log
                                 </button>
+                                <!-- Website V2 mode samples -->
+                                <div class="v2-mode-downloads" style="display: none;">
+                                    <button class="btn btn-outline-secondary btn-sm mb-1 download-btn" data-mode="website-v2" data-multiline="false">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download me-1" viewBox="0 0 16 16">
+                                            <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"></path>
+                                            <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"></path>
+                                        </svg>
+                                        Download Website V2 Sample Log
+                                    </button>
+                                    <br>
+                                    <button class="btn btn-outline-secondary btn-sm download-btn" data-mode="website-v2" data-multiline="true">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download me-1" viewBox="0 0 16 16">
+                                            <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"></path>
+                                            <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"></path>
+                                        </svg>
+                                        Download Website V2 Multiline Sample
+                                    </button>
+                                </div>
+                                <div id="downloadError" class="alert alert-danger mt-2" style="display: none;"></div>
                             </div>
-                            <div id="downloadError" class="alert alert-danger mt-2" style="display: none;"></div>
+                        </div>
+                        <div id="manualLogInputWrapper" class="mt-2" style="display:none;">
+                            <label for="manualLogInput" class="form-label">Paste Event Logs Here</label>
+                            <textarea class="form-control" id="manualLogInput" name="manual_log" rows="8" placeholder="Paste logs here, e.g. Event Payload: {...}"></textarea>
                         </div>
                     </div>
+                    <!-- Webhook controls removed -->
                     <button type="submit" class="btn btn-primary">Validate</button>
                 </form>
             </div>
@@ -331,6 +339,7 @@
                                 <input type="checkbox" id="eventNameSelectAll" checked>
                                 <label for="eventNameSelectAll">Select All</label>
                             </div>
+                            <input type="text" id="eventNameSearch" class="form-control mb-2" placeholder="Search events...">
                             <div id="eventNameOptions"></div>
                             <div class="filter-actions">
                                 <button class="btn btn-sm btn-primary" onclick="applyFilter('eventName')">Apply</button>
@@ -464,24 +473,41 @@
         // Handle validation mode changes
         $('input[name="validationMode"]').change(function() {
             const mode = $(this).val();
-            // Hide all sample download buttons first
+            // Hide all sample download buttons and file inputs first
             $('.sample-download, .v2-mode-downloads').hide();
-            
-            // Show the appropriate download button based on mode
+            const $txtFileInput = $('#txtFile');
+            const $txtFileContainer = $txtFileInput.closest('.mb-3');
+            // Show appropriate elements based on mode
             if (mode === 'regular') {
                 $('.sample-download.regular-mode').show();
+                $txtFileContainer.show();
             } else if (mode === 'website') {
                 $('.sample-download.website-mode').show();
+                $txtFileContainer.show();
             } else if (mode === 'website-v2') {
                 $('.v2-mode-downloads').show();
+                $txtFileContainer.show();
+            }
+        });
+
+        // Toggle between file and manual log input
+        $('input[name="logInputMode"]').change(function() {
+            if ($(this).val() === 'file') {
+                $('#txtFileInputWrapper').show();
+                $('#manualLogInputWrapper').hide();
+                $('#txtFile').prop('required', true);
+                $('#manualLogInput').prop('required', false);
+            } else {
+                $('#txtFileInputWrapper').hide();
+                $('#manualLogInputWrapper').show();
+                $('#txtFile').prop('required', false);
+                $('#manualLogInput').prop('required', true);
             }
         });
 
         $('#uploadForm').on('submit', function(e) {
             e.preventDefault();
-            const formData = new FormData(this);
-            
-            // Determine which endpoint to use based on validation mode
+            const formData = new FormData();
             const validationMode = $('input[name="validationMode"]:checked').val();
             let endpoint = '/upload';
             if (validationMode === 'website') {
@@ -489,14 +515,29 @@
             } else if (validationMode === 'website-v2') {
                 endpoint = '/validate-website-logs-v2';
             }
-            
-            // Get the current domain to ensure we're hitting the right server
             const baseUrl = window.location.origin;
             const fullUrl = baseUrl + endpoint;
-            
-            console.log('Making request to:', fullUrl);
-            console.log('Validation mode:', validationMode);
-            
+
+            // Always append CSV file
+            const csvFile = $('#csvFile')[0].files[0];
+            if (csvFile) {
+                formData.append('csv_file', csvFile);
+            }
+
+            // Check log input mode
+            const logInputMode = $('input[name="logInputMode"]:checked').val();
+            if (logInputMode === 'file') {
+                const txtFile = $('#txtFile')[0].files[0];
+                if (txtFile) {
+                    formData.append('txt_file', txtFile);
+                }
+            } else if (logInputMode === 'paste') {
+                const manualLog = $('#manualLogInput').val();
+                if (manualLog && manualLog.trim().length > 0) {
+                    formData.append('manual_log', manualLog);
+                }
+            }
+
             $.ajax({
                 url: fullUrl,
                 type: 'POST',
@@ -504,9 +545,7 @@
                 processData: false,
                 contentType: false,
                 success: function(response) {
-                    console.log('Upload response:', response);
-                    
-                    // Ensure response is properly initialized
+                    // ...existing code...
                     currentResults = [];
                     currentSummary = {
                         csv_events_count: 0,
@@ -515,10 +554,8 @@
                         log_events: []
                     };
                     window.originalLogs = {};
-                    
-                    // Handle both old and new response formats
+                    // ...existing code...
                     if (response && response.results && Array.isArray(response.results)) {
-                        // New format with summary
                         currentResults = response.results;
                         if (response.summary) {
                             currentSummary = response.summary;
@@ -527,17 +564,14 @@
                             window.originalLogs = response.original_logs;
                         }
                     } else if (Array.isArray(response)) {
-                        // Old format - just results array
                         currentResults = response;
                     } else {
                         console.error('Invalid response format:', response);
                     }
-                    
                     updateEventSummary();
                     updateFilters();
                     displayResults(currentResults);
                     $('#filterSection').show();
-
                     if (response.fully_valid_events && response.fully_valid_events.length > 0) {
                         $('#fullyValidEventsList').empty();
                         response.fully_valid_events.forEach(function(eventName) {
@@ -554,6 +588,8 @@
                 }
             });
         });
+
+        // Webhook functionality removed
 
         // Initialize filter dropdowns
         // Handle sample file downloads
@@ -665,22 +701,38 @@
             const container = $(`#${filterId}Options`);
             container.empty();
             
-            console.log(`Updating ${filterId} with values:`, Array.from(values));
-            
-            Array.from(values).sort().forEach(value => {
-                if (value) {
-                    const checkboxId = `${filterId}_${value.replace(/[^a-zA-Z0-9]/g, '_')}`;
-                    container.append(`
-                        <div class="filter-checkbox">
-                            <input type="checkbox" id="${checkboxId}" value="${value}" checked>
-                            <label for="${checkboxId}">${value}</label>
-                        </div>
-                    `);
-                }
-            });
+            // Store all values for search filtering
+            if (!window.allFilterValues) window.allFilterValues = {};
+            window.allFilterValues[filterId] = Array.from(values).sort();
+
+            function renderOptions(filterValues) {
+                container.empty();
+                filterValues.forEach(value => {
+                    if (value) {
+                        const checkboxId = `${filterId}_${value.replace(/[^a-zA-Z0-9]/g, '_')}`;
+                        container.append(`
+                            <div class="filter-checkbox">
+                                <input type="checkbox" id="${checkboxId}" value="${value}" checked>
+                                <label for="${checkboxId}">${value}</label>
+                            </div>
+                        `);
+                    }
+                });
+            }
+
+            renderOptions(window.allFilterValues[filterId]);
 
             // Update select all checkbox
             $(`#${filterId}SelectAll`).prop('checked', true);
+
+            // Add search functionality for eventName filter
+            if (filterId === 'eventName') {
+                $('#eventNameSearch').off('input').on('input', function() {
+                    const search = $(this).val().toLowerCase();
+                    const filtered = window.allFilterValues['eventName'].filter(v => v.toLowerCase().includes(search));
+                    renderOptions(filtered);
+                });
+            }
         }
 
         function getSelectedValues(filterId) {
