@@ -6,7 +6,6 @@ import re
 import io
 import logging
 import os
-import requests
 from queue import Queue, Empty
 import threading
 import time
