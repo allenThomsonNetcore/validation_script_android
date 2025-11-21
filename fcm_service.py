@@ -243,17 +243,13 @@ class FCMService:
             logger.info(f"Data Dict (JSON):\n{json.dumps(data_dict, indent=2)}")
             logger.info("="*80)
             
-            # Create Android message with the complete payload structure
+            # Create message as data-only (no notification field)
+            # This ensures onMessageReceived callback is always triggered, even when app is killed
+            # The app will handle displaying the notification based on the custom template in the data
             message = messaging.Message(
                 data=data_dict,
                 android=messaging.AndroidConfig(
-                    priority="high",
-                    notification=messaging.AndroidNotification(
-                        title=title,
-                        body=body,
-                        sound="default",
-                        click_action="FLUTTER_NOTIFICATION_CLICK"
-                    )
+                    priority="high"
                 ),
                 token=fcm_token
             )

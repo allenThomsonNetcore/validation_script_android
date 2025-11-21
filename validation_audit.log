@@ -728,3 +728,298 @@ Cookie: G_ENABLED_IDPS=google; g_state={"i_l":0,"i_ll":1761932652460,"i_b":"PC6T
 2025-11-21 17:41:34,358 - INFO - FCM credentials validated and stored server-side
 2025-11-21 17:41:34,358 - INFO - Response: b'{\n  "message": "Credentials validated and stored",\n  "valid": true\n}\n'
 2025-11-21 17:41:34,358 - INFO - 127.0.0.1 - - [21/Nov/2025 17:41:34] "POST /validate-fcm-credentials HTTP/1.1" 200 -
+2025-11-21 17:50:22,842 - INFO -  * Detected change in '/Users/allen.thomson/Desktop/sampleapp/automation/validation_script_android/fcm_service.py', reloading
+2025-11-21 17:50:22,991 - INFO -  * Restarting with stat
+2025-11-21 17:50:23,211 - WARNING -  * Debugger is active!
+2025-11-21 17:50:23,222 - INFO -  * Debugger PIN: 804-181-670
+2025-11-21 17:51:37,824 - INFO -  * Detected change in '/Users/allen.thomson/Desktop/sampleapp/automation/validation_script_android/fcm_service.py', reloading
+2025-11-21 17:51:37,874 - INFO -  * Restarting with stat
+2025-11-21 17:51:38,086 - WARNING -  * Debugger is active!
+2025-11-21 17:51:38,097 - INFO -  * Debugger PIN: 804-181-670
+2025-11-21 17:51:41,590 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:10000
+ * Running on http://172.16.20.190:10000
+2025-11-21 17:51:41,590 - INFO - [33mPress CTRL+C to quit[0m
+2025-11-21 17:51:41,594 - INFO -  * Restarting with stat
+2025-11-21 17:51:41,723 - WARNING -  * Debugger is active!
+2025-11-21 17:51:41,731 - INFO -  * Debugger PIN: 804-181-670
+2025-11-21 17:51:44,952 - INFO - Headers: Host: localhost:10000
+Connection: keep-alive
+Cache-Control: max-age=0
+Sec-Ch-Ua: "Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"
+Sec-Ch-Ua-Mobile: ?0
+Sec-Ch-Ua-Platform: "macOS"
+Upgrade-Insecure-Requests: 1
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
+Sec-Fetch-Site: same-origin
+Sec-Fetch-Mode: navigate
+Sec-Fetch-User: ?1
+Sec-Fetch-Dest: document
+Referer: http://localhost:10000/
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: en-GB,en-US;q=0.9,en;q=0.8
+Cookie: G_ENABLED_IDPS=google; g_state={"i_l":0,"i_ll":1761932652460,"i_b":"PC6TgPeVdCRrApqPyLSK1E0B4dpwNQ8S1CDxzKuUuww"}; remember_token=1|4a0a1dd5ea69791275ae2b251699461e736c025cf4fb0f77f0c42c0d1fd1a0babb890f89790bdc3ee870dadc8cd491e40975fbd7051499a8968ac58402795831
+
+
+2025-11-21 17:51:44,953 - INFO - Body: b''
+2025-11-21 17:51:44,953 - INFO - URL: http://localhost:10000/push-notification
+2025-11-21 17:51:44,953 - INFO - Method: GET
+2025-11-21 17:51:44,953 - INFO - Endpoint: push_notification
+2025-11-21 17:51:44,961 - INFO - Response: b'<!DOCTYPE html>\n<html lang="en">\n<head>\n    <meta charset="UTF-8">\n    <meta name="viewport" content="width=device-width, initial-scale=1.0">\n    <title>FCM Push Notification Sender</title>\n    <link rel="icon" type="image/png" href="/static/favicon.png">\n    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">\n    <style>\n        :root {\n            --primary-color: #e35502;\n            --header-bg: #230f2e;\n        }\n        #addPayloadPair{\n            color: #d1d1d1;\n            background-color: #230f2e;\n        }\n        .bg-info {\n            background-color: #230f2e !important;\n            color: #230f2e;\n        }\n       \n        .container { margin-top: 30px; }\n        .form-label { font-weight: 600; color: #333; }\n        \n        /* Header styling */\n        .navbar {\n            background-color: var(--header-bg) !important;\n        }\n        \n        .navbar-brand, .navbar-nav .nav-link {\n            color: white !important;\n        }\n        \n        .navbar-brand img {\n            height: 40px;\n            width: auto;\n            filter: brightness(0) invert(1);\n        }\n        \n        @media (max-width: 768px) {\n            .navbar-brand img {\n                height: 30px;\n            }\n            .navbar-brand span {\n                font-size: 0.9rem;\n            }\n        }\n        \n        .navbar-toggler {\n            border-color: rgba(255,255,255,0.5);\n        }\n        \n        .navbar-toggler-icon {\n            background-image: url("data:image/svg+xml,%3csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 30 30\'%3e%3cpath stroke=\'rgba%28255, 255, 255, 0.75%29\' stroke-linecap=\'round\' stroke-miterlimit=\'10\' stroke-width=\'2\' d=\'M4 7h22M4 15h22M4 23h22\'/%3e%3c/svg%3e");\n        }\n        \n        /* Button styling */\n        .btn-primary {\n            background-color: var(--primary-color) !important;\n            border-color: var(--primary-color) !important;\n        }\n        \n        .btn-primary:hover {\n            background-color: #c64802 !important;\n            border-color: #c64802 !important;\n        }\n        \n        .btn-outline-primary {\n            color: white !important;\n            border-color: white !important;\n        }\n        \n        .btn-outline-primary:hover {\n            background-color: rgba(255,255,255,0.1) !important;\n        }\n        \n        .alert {\n            border-radius: 5px;\n        }\n        \n        .status-success {\n            background-color: #d4edda;\n            color: #155724;\n            border: 1px solid #c3e6cb;\n            padding: 12px;\n            border-radius: 5px;\n            margin-top: 10px;\n        }\n        \n        .status-error {\n            background-color: #f8d7da;\n            color: #721c24;\n            border: 1px solid #f5c6cb;\n            padding: 12px;\n            border-radius: 5px;\n            margin-top: 10px;\n        }\n        \n        .status-info {\n            background-color: #d1ecf1;\n            color: #0c5460;\n            border: 1px solid #bee5eb;\n            padding: 12px;\n            border-radius: 5px;\n            margin-top: 10px;\n        }\n\n        .payload-key,\n        .payload-value {\n            font-size: 0.9rem;\n        }\n\n        .remove-pair {\n            font-size: 0.85rem;\n            padding: 0.3rem 0.5rem;\n        }\n    </style>\n</head>\n<body>\n    <!-- Navbar matching main page -->\n    <nav class="navbar navbar-expand-lg navbar-light bg-light">\n        <div class="container-fluid">\n            <a class="navbar-brand d-flex align-items-center" href="/">\n                <img src="/static/netcore_logo.png" alt="Netcore Logo" height="40" class="me-2">\n                <span> Notifications</span>\n            </a>\n            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">\n                <span class="navbar-toggler-icon"></span>\n            </button>\n            <div class="collapse navbar-collapse" id="navbarNav">\n                <ul class="navbar-nav ms-auto">\n                    <li class="nav-item">\n                        <a class="btn btn-primary" href="/">\xe2\x86\x90 Back to Validation</a>\n                    </li>\n                </ul>\n            </div>\n        </div>\n    </nav>\n\n    <div class="container">\n        <h2>\xf0\x9f\x93\xb1 FCM Push Notification Sender</h2>\n        \n        <div class="card mb-4">\n            <div class="card-body">\n                <form id="fcmForm" enctype="multipart/form-data">\n                    <div class="row">\n                        <div class="col-md-6">\n                            <div class="mb-3">\n                                <label for="privateKeysFile" class="form-label">\n                                    Firebase Private Key (JSON)\n                                    <span id="credentialsUploadedBadge" class="badge bg-success ms-2" style="display: none;background-color: #230f2e !important; color: #f9f9f9;">\xe2\x9c\x93 Uploaded</span>\n                                </label>\n                                <input type="file" class="form-control" id="privateKeysFile" name="private_keys" accept=".json">\n                                <small class="form-text text-muted">Upload your Firebase service account JSON file</small>\n                                <div id="credentialsStatus" class="mt-2"></div>\n                            </div>\n                        </div>\n                        <div class="col-md-6">\n                            <div class="mb-3">\n                                <label for="fcmToken" class="form-label">FCM Device Token</label>\n                                <input type="text" class="form-control" id="fcmToken" name="fcm_token" placeholder="e.g., eW8C5Nx8u5I:..." required>\n                                <small class="form-text text-muted">Firebase Cloud Messaging token from your device</small>\n                            </div>\n                        </div>\n                    </div>\n\n                    <div class="mb-3">\n                        <label for="notificationTemplate" class="form-label">Notification Template</label>\n                        <select class="form-control" id="notificationTemplate" required>\n                            <option value="">-- Select a template --</option>\n                            <option value="rating">Rating Push Notification</option>\n                            <option value="simple">Simple Push Notification</option>\n                        </select>\n                    </div>\n\n                    <!-- Simple Template Fields -->\n                    <div id="simpleTemplateFields" style="display: none;">\n                        <div class="row">\n                            <div class="col-md-6">\n                                <div class="mb-3">\n                                    <label for="notificationTitle" class="form-label">Title</label>\n                                    <input type="text" class="form-control" id="notificationTitle" placeholder="Enter notification title">\n                                </div>\n                            </div>\n                            <div class="col-md-6">\n                                <div class="mb-3">\n                                    <label for="notificationMessage" class="form-label">Message</label>\n                                    <input type="text" class="form-control" id="notificationMessage" placeholder="Enter notification message">\n                                </div>\n                            </div>\n                        </div>\n                    </div>\n\n                    <!-- Common Fields for all templates -->\n                    <div id="commonTemplateFields" style="display: none;">\n                        <div class="mb-3">\n                            <label for="deeplinkUrl" class="form-label">Deep Link URL (Optional)</label>\n                            <input type="text" class="form-control" id="deeplinkUrl" placeholder="e.g., myapp://screen/product/123">\n                            <small class="form-text text-muted">URL to navigate to when notification is clicked</small>\n                        </div>\n\n                        <div class="mb-3">\n                            <label for="imageLink" class="form-label">Image Link (Optional)</label>\n                            <input type="text" class="form-control" id="imageLink" placeholder="e.g., https://example.com/image.png">\n                            <small class="form-text text-muted">URL to the notification image</small>\n                        </div>\n\n                        <div class="mb-3">\n                            <label class="form-label">Custom Payload (Optional)</label>\n                            <div id="payloadKeyValuePairs" class="mb-3">\n                                <!-- Key-value pairs will be added here dynamically -->\n                            </div>\n                            <button type="button" class="btn btn-sm btn-success" id="addPayloadPair">\n                                <i class="bi bi-plus"></i> Add Key-Value Pair\n                            </button>\n                            <div id="formPayloadError" class="alert alert-danger mt-2" style="display: none;"></div>\n                        </div>\n                    </div>\n\n                    <div class="mb-3">\n                        <button type="submit" class="btn btn-primary">Send Push Notification</button>\n                        <div id="pushNotificationStatus" class="mt-3"></div>\n                        <div id="fcmResponseDetails" class="mt-3" style="display: none;">\n                            <div class="card border-info">\n                                <div class="card-header bg-info text-white">\n                                    <h6 class="mb-0">FCM Response Details</h6>\n                                </div>\n                                <div class="card-body">\n                                    <div class="row">\n                                        <div class="col-md-6">\n                                            <p class="mb-2"><strong>Message ID:</strong></p>\n                                            <p id="messageId" class="text-monospace" style="font-family: monospace; word-break: break-all;">-</p>\n                                        </div>\n                                        <div class="col-md-6">\n                                            <p class="mb-2"><strong>Template Type:</strong></p>\n                                            <p id="templateType">-</p>\n                                        </div>\n                                    </div>\n                                    <div class="row">\n                                        <div class="col-md-6">\n                                            <p class="mb-2"><strong>Device Token:</strong></p>\n                                            <p id="deviceToken" class="text-monospace" style="font-family: monospace; word-break: break-all;">-</p>\n                                        </div>\n                                        <div class="col-md-6">\n                                            <p class="mb-2"><strong>Timestamp:</strong></p>\n                                            <p id="timestamp">-</p>\n                                        </div>\n                                    </div>\n                                    <div class="row">\n                                        <div class="col-12">\n                                            <p class="mb-2"><strong>Status:</strong></p>\n                                            <p id="deliveryStatus" class="badge bg-success">Sent Successfully</p>\n                                        </div>\n                                    </div>\n                                </div>\n                            </div>\n                        </div>\n                    </div>\n                </form>\n            </div>\n        </div>\n\n        <!-- Template Information -->\n        <!-- <div class="card mb-4">\n            <div class="card-body">\n                <h5 class="card-title">\xf0\x9f\x93\x8b Available Templates</h5>\n                <div class="row">\n                    <div class="col-md-6">\n                        <h6>Rating Push Notification</h6>\n                        <p class="text-muted small">Sends an in-app rating request with customizable UI. Includes deep link support for navigation and automatic 30-day message expiry.</p>\n                    </div>\n                    <div class="col-md-6">\n                        <h6>Simple Push Notification</h6>\n                        <p class="text-muted small">Standard notification with title and message. Supports deep links and custom payload data for flexible app integration.</p>\n                    </div>\n                </div>\n            </div>\n        </div> -->\n    </div>\n\n    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>\n    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>\n    <script>\n        $(document).ready(function() {\n            // ==================== LOCAL STORAGE PERSISTENCE ====================\n            \n            // Load saved FCM token and key-value pairs on page load\n            function loadSavedData() {\n                const savedFcmToken = localStorage.getItem(\'fcm_token\');\n                const savedKeyValuePairs = localStorage.getItem(\'fcm_custom_payload_pairs\');\n                \n                if (savedFcmToken) {\n                    $(\'#fcmToken\').val(savedFcmToken);\n                }\n                \n                // Load saved key-value pairs\n                if (savedKeyValuePairs) {\n                    try {\n                        const pairs = JSON.parse(savedKeyValuePairs);\n                        for (const [key, value] of Object.entries(pairs)) {\n                            addPayloadPair(key, value);\n                        }\n                    } catch (e) {\n                        console.error(\'Failed to load saved payload pairs:\', e);\n                    }\n                }\n            }\n            \n            // Save data to localStorage (excludes sensitive credentials)\n            function saveToLocalStorage() {\n                const fcmToken = $(\'#fcmToken\').val();\n                if (fcmToken) {\n                    localStorage.setItem(\'fcm_token\', fcmToken);\n                }\n                \n                // Save key-value pairs\n                const formPayload = getFormPayloadAsJson();\n                if (Object.keys(formPayload).length > 0) {\n                    localStorage.setItem(\'fcm_custom_payload_pairs\', JSON.stringify(formPayload));\n                }\n            }\n            \n            // Track if credentials are uploaded to server\n            let credentialsUploadedToServer = localStorage.getItem(\'credentialsUploadedToServer\') === \'true\';\n            \n            // Update credential status display on page load\n            function updateCredentialStatusDisplay() {\n                if (credentialsUploadedToServer) {\n                    // $(\'#credentialsStatus\').html(\'<div class="status-success">\xe2\x9c\x93 Firebase credentials uploaded and validated successfully</div>\');\n                    $(\'#credentialsUploadedBadge\').show();\n                }\n            }\n            \n            // Save private key when file is selected\n            $(\'#privateKeysFile\').change(function() {\n                const file = this.files[0];\n                if (!file) {\n                    // If file is cleared, hide badge but keep the flag for next upload\n                    $(\'#credentialsUploadedBadge\').hide();\n                    return;\n                }\n\n                const reader = new FileReader();\n                reader.onload = function(e) {\n                    const credentials = e.target.result;\n                    \n                    const statusDiv = $(\'#credentialsStatus\');\n                    statusDiv.html(\'<div class="status-info">Uploading and validating credentials...</div>\');\n\n                    $.ajax({\n                        url: \'/validate-fcm-credentials\',\n                        method: \'POST\',\n                        data: JSON.stringify({ credentials: credentials }),\n                        contentType: \'application/json\',\n                        success: function(response) {\n                            if (response.valid) {\n                                credentialsUploadedToServer = true;\n                                localStorage.setItem(\'credentialsUploadedToServer\', \'true\');\n                                statusDiv.html(\'<div class="status-success">\xe2\x9c\x93 Firebase credentials uploaded and validated successfully</div>\');\n                                $(\'#credentialsUploadedBadge\').show();\n                            } else {\n                                credentialsUploadedToServer = false;\n                                localStorage.setItem(\'credentialsUploadedToServer\', \'false\');\n                                statusDiv.html(\'<div class="status-error">\xe2\x9c\x97 \' + (response.message || \'Validation failed\') + \'</div>\');\n                                $(\'#credentialsUploadedBadge\').hide();\n                            }\n                        },\n                        error: function(xhr, status, error) {\n                            credentialsUploadedToServer = false;\n                            localStorage.setItem(\'credentialsUploadedToServer\', \'false\');\n                            const errorMsg = xhr.responseJSON?.message || error || \'Unknown error\';\n                            statusDiv.html(\'<div class="status-error">\xe2\x9c\x97 Error: \' + errorMsg + \'</div>\');\n                            $(\'#credentialsUploadedBadge\').hide();\n                        }\n                    });\n                };\n                reader.readAsText(file);\n            });\n            \n            // Save token on blur\n            $(\'#fcmToken\').on(\'blur\', function() {\n                saveToLocalStorage();\n            });\n            \n            // Save key-value pairs whenever they change\n            $(document).on(\'change\', \'.payload-key, .payload-value\', function() {\n                saveToLocalStorage();\n            });\n            \n            // ==================== CUSTOM PAYLOAD KEY-VALUE FORM ====================\n            \n            let payloadPairCount = 0;\n            \n            // Add new key-value pair\n            $(\'#addPayloadPair\').click(function() {\n                addPayloadPair();\n            });\n            \n            function addPayloadPair(key = \'\', value = \'\') {\n                payloadPairCount++;\n                const pairId = \'pair-\' + payloadPairCount;\n                \n                const pairHtml = `\n                    <div class="row mb-2" id="${pairId}">\n                        <div class="col-md-5">\n                            <input type="text" class="form-control payload-key" placeholder="Key" value="${key}">\n                        </div>\n                        <div class="col-md-5">\n                            <input type="text" class="form-control payload-value" placeholder="Value" value="${value}">\n                        </div>\n                        <div class="col-md-2">\n                            <button type="button" class="btn btn-sm btn-danger remove-pair" data-pair-id="${pairId}">Remove</button>\n                        </div>\n                    </div>\n                `;\n                \n                $(\'#payloadKeyValuePairs\').append(pairHtml);\n            }\n            \n            // Remove key-value pair\n            $(document).on(\'click\', \'.remove-pair\', function() {\n                const pairId = $(this).data(\'pair-id\');\n                $(\'#\' + pairId).remove();\n            });\n            \n            // Convert form payload to JSON\n            function getFormPayloadAsJson() {\n                const pairs = {};\n                $(\'#payloadKeyValuePairs .row\').each(function() {\n                    const key = $(this).find(\'.payload-key\').val().trim();\n                    const value = $(this).find(\'.payload-value\').val().trim();\n                    \n                    if (key) {\n                        pairs[key] = value;\n                    }\n                });\n                return pairs;\n            }\n            \n            // ==================== TEMPLATE SELECTION ====================\n            \n            // Toggle template-specific fields based on selection\n            $(\'#notificationTemplate\').change(function() {\n                const template = $(this).val();\n                if (template) {\n                    $(\'#simpleTemplateFields\').toggle(template === \'simple\');\n                    $(\'#commonTemplateFields\').show();\n                } else {\n                    $(\'#simpleTemplateFields\').hide();\n                    $(\'#commonTemplateFields\').hide();\n                }\n            });\n            \n            // ==================== FORM SUBMISSION ====================\n            \n            // Handle form submission\n            $(\'#fcmForm\').submit(function(e) {\n                e.preventDefault();\n\n                const template = $(\'#notificationTemplate\').val();\n                if (!template) {\n                    alert(\'Please select a notification template\');\n                    return;\n                }\n\n                // Check if credentials are uploaded\n                if (!credentialsUploadedToServer) {\n                    alert(\'Please upload Firebase private key file first\');\n                    return;\n                }\n\n                // Get custom payload from form\n                const formPayload = getFormPayloadAsJson();\n                let customPayload = \'\';\n                \n                if (Object.keys(formPayload).length > 0) {\n                    customPayload = JSON.stringify(formPayload);\n                }\n\n                const fcmToken = $(\'#fcmToken\').val();\n                if (!fcmToken) {\n                    alert(\'Please enter FCM device token\');\n                    return;\n                }\n                \n                // Save token to localStorage\n                saveToLocalStorage();\n                \n                // Build request payload (NO credentials sent)\n                const requestPayload = {\n                    template_type: template,\n                    fcm_token: fcmToken,\n                    deeplink: $(\'#deeplinkUrl\').val().trim() || \'\',\n                    image_link: $(\'#imageLink\').val().trim() || \'\'\n                };\n\n                // Add template-specific fields\n                if (template === \'simple\') {\n                    requestPayload.title = $(\'#notificationTitle\').val().trim();\n                    requestPayload.message = $(\'#notificationMessage\').val().trim();\n                }\n\n                // Add custom payload if present\n                if (customPayload) {\n                    requestPayload.custom_payload = customPayload;\n                }\n\n                const statusDiv = $(\'#pushNotificationStatus\');\n                statusDiv.html(\'<div class="status-info">Sending push notification...</div>\');\n\n                $.ajax({\n                    url: \'/send-push-notification\',\n                    method: \'POST\',\n                    data: JSON.stringify(requestPayload),\n                    contentType: \'application/json\',\n                    success: function(response) {\n                        if (response.success) {\n                            statusDiv.html(\'<div class="status-success">\xe2\x9c\x93 Push notification sent successfully!</div>\');\n                            \n                            // Display detailed FCM response\n                            $(\'#messageId\').text(response.message_id || \'N/A\');\n                            $(\'#templateType\').text(response.template_type || template);\n                            $(\'#deviceToken\').text(response.device_token ? response.device_token.substring(0, 30) + \'...\' : fcmToken.substring(0, 30) + \'...\');\n                            $(\'#timestamp\').text(response.timestamp || new Date().toISOString());\n                            $(\'#deliveryStatus\').text(response.status || \'Sent Successfully\').removeClass(\'bg-danger bg-warning\').addClass(\'bg-success\');\n                            $(\'#fcmResponseDetails\').show();\n                        } else {\n                            statusDiv.html(\'<div class="status-error">\xe2\x9c\x97 \' + (response.message || \'Failed to send notification\') + \'</div>\');\n                            $(\'#fcmResponseDetails\').hide();\n                        }\n                    },\n                    error: function(xhr, status, error) {\n                        const errorMsg = xhr.responseJSON?.message || error || \'Unknown error\';\n                        statusDiv.html(\'<div class="status-error">\xe2\x9c\x97 Error: \' + errorMsg + \'</div>\');\n                        $(\'#fcmResponseDetails\').hide();\n                    }\n                });\n            });\n            \n            // Load saved data on page load\n            loadSavedData();\n            updateCredentialStatusDisplay();\n        });\n    </script>\n</body>\n</html>'
+2025-11-21 17:51:44,961 - INFO - 127.0.0.1 - - [21/Nov/2025 17:51:44] "GET /push-notification HTTP/1.1" 200 -
+2025-11-21 17:51:45,011 - INFO - Headers: Host: localhost:10000
+Connection: keep-alive
+Sec-Ch-Ua-Platform: "macOS"
+If-None-Match: "1760083224.4597292-6435-2328635141"
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36
+Sec-Ch-Ua: "Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"
+If-Modified-Since: Fri, 10 Oct 2025 08:00:24 GMT
+Sec-Ch-Ua-Mobile: ?0
+Accept: image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8
+Sec-Fetch-Site: same-origin
+Sec-Fetch-Mode: no-cors
+Sec-Fetch-Dest: image
+Referer: http://localhost:10000/push-notification
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: en-GB,en-US;q=0.9,en;q=0.8
+Cookie: G_ENABLED_IDPS=google; g_state={"i_l":0,"i_ll":1761932652460,"i_b":"PC6TgPeVdCRrApqPyLSK1E0B4dpwNQ8S1CDxzKuUuww"}; remember_token=1|4a0a1dd5ea69791275ae2b251699461e736c025cf4fb0f77f0c42c0d1fd1a0babb890f89790bdc3ee870dadc8cd491e40975fbd7051499a8968ac58402795831
+
+
+2025-11-21 17:51:45,011 - INFO - Body: b''
+2025-11-21 17:51:45,011 - INFO - URL: http://localhost:10000/static/netcore_logo.png
+2025-11-21 17:51:45,011 - INFO - Method: GET
+2025-11-21 17:51:45,011 - INFO - Endpoint: static
+2025-11-21 17:51:45,018 - INFO - Response: [File Response] Content-Type: image/png, Headers: {'Content-Disposition': 'inline; filename=netcore_logo.png', 'Content-Type': 'image/png', 'Content-Length': '6435', 'Last-Modified': 'Fri, 10 Oct 2025 08:00:24 GMT', 'Cache-Control': 'no-cache', 'ETag': '"1760083224.4597292-6435-2328635141"', 'Date': 'Fri, 21 Nov 2025 12:21:45 GMT'}
+2025-11-21 17:51:45,018 - INFO - 127.0.0.1 - - [21/Nov/2025 17:51:45] "[36mGET /static/netcore_logo.png HTTP/1.1[0m" 304 -
+2025-11-21 17:51:45,099 - INFO - Headers: Host: localhost:10000
+Connection: keep-alive
+Sec-Ch-Ua-Platform: "macOS"
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36
+Sec-Ch-Ua: "Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"
+Sec-Ch-Ua-Mobile: ?0
+Accept: image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8
+Sec-Fetch-Site: same-origin
+Sec-Fetch-Mode: no-cors
+Sec-Fetch-Dest: image
+Referer: http://localhost:10000/push-notification
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: en-GB,en-US;q=0.9,en;q=0.8
+Cookie: G_ENABLED_IDPS=google; g_state={"i_l":0,"i_ll":1761932652460,"i_b":"PC6TgPeVdCRrApqPyLSK1E0B4dpwNQ8S1CDxzKuUuww"}; remember_token=1|4a0a1dd5ea69791275ae2b251699461e736c025cf4fb0f77f0c42c0d1fd1a0babb890f89790bdc3ee870dadc8cd491e40975fbd7051499a8968ac58402795831
+If-None-Match: "1760083224.4566805-889-3395757291"
+If-Modified-Since: Fri, 10 Oct 2025 08:00:24 GMT
+
+
+2025-11-21 17:51:45,099 - INFO - Body: b''
+2025-11-21 17:51:45,099 - INFO - URL: http://localhost:10000/static/favicon.png
+2025-11-21 17:51:45,099 - INFO - Method: GET
+2025-11-21 17:51:45,099 - INFO - Endpoint: static
+2025-11-21 17:51:45,100 - INFO - Response: [File Response] Content-Type: image/png, Headers: {'Content-Disposition': 'inline; filename=favicon.png', 'Content-Type': 'image/png', 'Content-Length': '889', 'Last-Modified': 'Fri, 10 Oct 2025 08:00:24 GMT', 'Cache-Control': 'no-cache', 'ETag': '"1760083224.4566805-889-3395757291"', 'Date': 'Fri, 21 Nov 2025 12:21:45 GMT'}
+2025-11-21 17:51:45,100 - INFO - 127.0.0.1 - - [21/Nov/2025 17:51:45] "[36mGET /static/favicon.png HTTP/1.1[0m" 304 -
+2025-11-21 17:51:47,403 - INFO - Headers: Host: localhost:10000
+Connection: keep-alive
+Content-Length: 2512
+Sec-Ch-Ua-Platform: "macOS"
+X-Requested-With: XMLHttpRequest
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36
+Accept: */*
+Sec-Ch-Ua: "Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"
+Content-Type: application/json
+Sec-Ch-Ua-Mobile: ?0
+Origin: http://localhost:10000
+Sec-Fetch-Site: same-origin
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:10000/push-notification
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: en-GB,en-US;q=0.9,en;q=0.8
+Cookie: G_ENABLED_IDPS=google; g_state={"i_l":0,"i_ll":1761932652460,"i_b":"PC6TgPeVdCRrApqPyLSK1E0B4dpwNQ8S1CDxzKuUuww"}; remember_token=1|4a0a1dd5ea69791275ae2b251699461e736c025cf4fb0f77f0c42c0d1fd1a0babb890f89790bdc3ee870dadc8cd491e40975fbd7051499a8968ac58402795831
+
+
+2025-11-21 17:51:47,404 - INFO - Body: b'{"credentials":"{\\n  \\"type\\": \\"service_account\\",\\n  \\"project_id\\": \\"android-project-ecomapp\\",\\n  \\"private_key_id\\": \\"98faa67ef71a81fd31a8d1d638e449d1715574c0\\",\\n  \\"private_key\\": \\"-----BEGIN PRIVATE KEY-----\\\\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC2j9OBNqCK1xoN\\\\nHwJjKUHjtGTdy39E+SJSS5Xido8P3cLLAWRBxIEoH9hc3EKD1E5V71y+KOLuUZcy\\\\nIiPxXuk5roqgERhuXpprr8U7cPganZ8jFne4mlWPnjLitxT9SP7ZkEMgz559+ZM+\\\\nW/Pbf6MejbP+qGJeABYOVmK4LQwpFvCxCZHrVJpNpOH+dnBrF9TOzWNiq4Mw8Apn\\\\ntbPmFDHU5QZwd4nE5+o5ekLCn6TyyjN/qeDxQYpi3FPcYVLB7/niM0ilIEFewfkv\\\\nxI9w5OYBnjjQOoFKuiX4lqFh00l2TJqOxT/k+xaT4My6wLiOimuCvEE0drdoVnvW\\\\nzKY8Ja/DAgMBAAECggEALZs4hysSaBzcUTLR8du4rh2+pPnVTXG/dTeUtgJQMvJ/\\\\nWx954EQqz89Eyc3sf+plt2oYjRjBuC+ByfBlckL3mIVV9C7RH6FailRavUK3eE6w\\\\nFp/iQKetgDdRFvoNsEiwAcHcQzIasfXLJuTpwofcRCG6OX/vMvRqjiJefwwh4ZGB\\\\nel2E3vBrM9c2fP3wkGWiWoTXZKtuyKV9RAbRwg5LqVNTpxhufSXgzScagDY8nLR1\\\\nrJ/83zd2EzP6p7cYFS6Uq88b0w9hWVHHwUrfTGhGYhNX6qVVl57icGgHadLXIqdT\\\\nI5+K7qHMoz6BcLrPHlEnc5uJ2rk0nmrbVKl7QJuAYQKBgQDd/yVRpS6Wtz5cV9QT\\\\n1/BEbfa98uqXnxu5fn3ddJw6uQzqQt+KcGaEg+ko/bQNkgiLgauM0JuVEP90a19T\\\\nHx/yTaP9Uo4d/GATkCX6j4eXoHAoeBnCMYuQXRlLA1tc+6hIngjDWejsZELnPLEL\\\\nFwyKWSFgAkCoUfOucHhN72fe9QKBgQDShmAajT4vjZs2Nuu0GjgYeb6JRG1+HP1Q\\\\n8ylclx7PhfAMwQNNHMV6rV/x8DDBDM2guEqccWPDvejqREKcjyGventJCXecxlgf\\\\nfi3NXtaJ8vJ9NJUT9UXxv5o8gjWcNZ2Jf1yAUxS9lxS5CMiww5sPj0H6rfEExfXR\\\\n+RyeMX2w1wKBgQCGUmlcO1wzKXD8ItBZqWDhpr+TMzYqw8TcueKianpVNb7Qx+HG\\\\nPDhrmf0sJkYZp/CvqKgKLfbVfVF0ObuV6dFEpSHCl38SObBQZfn033+liRgUBIdh\\\\nbuUJVquFLeTMICE0vxqCSRacYhXxIFHnaezWkROWqgZBUkTlmXvRfDgXOQKBgEu6\\\\nFlu2rsXANDKeMs7IF6GGOWl6+b/BgcVakmhB281eKmkMDLnyPX7RWo/WjFME3fqQ\\\\nEBaSGwbQCzYpc6SJP961Oh+dji8QkaZSZvtWv+lDQMKU5YMWWSCKgVp+o/Yaux44\\\\nd/eY6v7/l26voDElS2OfbmZTpzzGUJRE/WxR9RplAoGAUXLvWs1fqYugbSnTAbMq\\\\ni0XNQm4wtCQOjx/z2ovy4DGIyfzZGNuC76ySDcIqpyJeCtfqkq6ag05jXK3lFmGm\\\\ngeYP9vdl6VSsBj8GaYJ7kLK57dh8100Nc07JsmNZx73YRqabCBvw/1nxQzOMKkPQ\\\\nxhlHt2R1kN/+ZaOC7+xFwpM=\\\\n-----END PRIVATE KEY-----\\\\n\\",\\n  \\"client_email\\": \\"firebase-adminsdk-rep6g@android-project-ecomapp.iam.gserviceaccount.com\\",\\n  \\"client_id\\": \\"116662145837078911094\\",\\n  \\"auth_uri\\": \\"https://accounts.google.com/o/oauth2/auth\\",\\n  \\"token_uri\\": \\"https://oauth2.googleapis.com/token\\",\\n  \\"auth_provider_x509_cert_url\\": \\"https://www.googleapis.com/oauth2/v1/certs\\",\\n  \\"client_x509_cert_url\\": \\"https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-rep6g%40android-project-ecomapp.iam.gserviceaccount.com\\",\\n  \\"universe_domain\\": \\"googleapis.com\\"\\n}\\n"}'
+2025-11-21 17:51:47,404 - INFO - URL: http://localhost:10000/validate-fcm-credentials
+2025-11-21 17:51:47,404 - INFO - Method: POST
+2025-11-21 17:51:47,404 - INFO - Endpoint: validate_fcm_credentials
+2025-11-21 17:51:47,651 - INFO - Firebase initialized successfully with /var/folders/q0/crpf2_g53vd_p40scnm76q7w0000gq/T/tmpi0zt1km9.json
+2025-11-21 17:51:47,652 - INFO - FCM credentials validated and stored server-side
+2025-11-21 17:51:47,652 - INFO - Response: b'{\n  "message": "Credentials validated and stored",\n  "valid": true\n}\n'
+2025-11-21 17:51:47,652 - INFO - 127.0.0.1 - - [21/Nov/2025 17:51:47] "POST /validate-fcm-credentials HTTP/1.1" 200 -
+2025-11-21 17:51:51,382 - INFO - Headers: Host: localhost:10000
+Connection: keep-alive
+Content-Length: 272
+Sec-Ch-Ua-Platform: "macOS"
+X-Requested-With: XMLHttpRequest
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36
+Accept: */*
+Sec-Ch-Ua: "Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"
+Content-Type: application/json
+Sec-Ch-Ua-Mobile: ?0
+Origin: http://localhost:10000
+Sec-Fetch-Site: same-origin
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:10000/push-notification
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: en-GB,en-US;q=0.9,en;q=0.8
+Cookie: G_ENABLED_IDPS=google; g_state={"i_l":0,"i_ll":1761932652460,"i_b":"PC6TgPeVdCRrApqPyLSK1E0B4dpwNQ8S1CDxzKuUuww"}; remember_token=1|4a0a1dd5ea69791275ae2b251699461e736c025cf4fb0f77f0c42c0d1fd1a0babb890f89790bdc3ee870dadc8cd491e40975fbd7051499a8968ac58402795831
+
+
+2025-11-21 17:51:51,384 - INFO - Body: b'{"template_type":"rating","fcm_token":"draY6WCzSciniCqnb8utwO:APA91bFzD_gJpEMuQkU3ybBTSoI2Udp1tr102HQpRxyiEz6kooBpXfl2YhdahmGjy0GCHq2SXv4M9o0qaURF_5WilcX8QyQaEkqOmWZO9uNrra2p04XXU-4","deeplink":"","image_link":"","custom_payload":"{\\"key1\\":\\"value1\\",\\"key2\\":\\"key3\\"}"}'
+2025-11-21 17:51:51,384 - INFO - URL: http://localhost:10000/send-push-notification
+2025-11-21 17:51:51,384 - INFO - Method: POST
+2025-11-21 17:51:51,384 - INFO - Endpoint: send_push_notification
+2025-11-21 17:51:51,386 - INFO - Deleted existing Firebase app instance
+2025-11-21 17:51:51,490 - INFO - Firebase initialized successfully with /var/folders/q0/crpf2_g53vd_p40scnm76q7w0000gq/T/tmpdanhd6k_.json
+2025-11-21 17:51:51,490 - INFO - ================================================================================
+2025-11-21 17:51:51,490 - INFO - COMPLETE PAYLOAD BEING SENT:
+2025-11-21 17:51:51,490 - INFO - ================================================================================
+2025-11-21 17:51:51,490 - INFO - Template Type: rating
+2025-11-21 17:51:51,490 - INFO - FCM Token: draY6WCzSciniCqnb8utwO:APA91bFzD_gJpEMuQkU3ybBTSoI2Udp1tr102HQpRxyiEz6kooBpXfl2YhdahmGjy0GCHq2SXv4M9o0qaURF_5WilcX8QyQaEkqOmWZO9uNrra2p04XXU-4
+2025-11-21 17:51:51,490 - INFO - Full Payload (JSON):
+{
+  "smtSrc": "Smartech",
+  "data": {
+    "actionButton": [],
+    "attrParams": {},
+    "carousel": [],
+    "customPayload": {
+      "key1": "value1",
+      "key2": "key3"
+    },
+    "deeplink": "",
+    "expiry": 1766319711,
+    "image": "",
+    "message": "Rating Push Notification",
+    "publishedDate": "2025-11-21T17:51:51.490397",
+    "sound": true,
+    "status": "sent",
+    "subtitle": "",
+    "title": "Rating Push Notification",
+    "trid": "175567-591-13872-0-20251121175151-T",
+    "type": "Simple"
+  },
+  "trid": "175567-591-13872-0-20251121175151-T",
+  "smtUi": {
+    "flid": 1,
+    "lid": 1,
+    "rat": {
+      "cbt": "Submit",
+      "dl": "",
+      "sc": 5,
+      "si": "https://cdna.netcoresmartech.com/14340/1680080201.png",
+      "ty": 1,
+      "ui": "https://cdna.netcoresmartech.com/14340/1680076013.png"
+    }
+  },
+  "smtCustomPayload": {
+    "key1": "value1",
+    "key2": "key3"
+  }
+}
+2025-11-21 17:51:51,490 - INFO - ================================================================================
+2025-11-21 17:51:51,490 - INFO - ================================================================================
+2025-11-21 17:51:51,490 - INFO - FCM MESSAGE DATA (converted to strings):
+2025-11-21 17:51:51,490 - INFO - ================================================================================
+2025-11-21 17:51:51,490 - INFO - Data Dict (JSON):
+{
+  "smtSrc": "Smartech",
+  "trid": "175567-591-13872-0-20251121175151-T",
+  "data": "{\"actionButton\": [], \"attrParams\": {}, \"carousel\": [], \"customPayload\": {\"key1\": \"value1\", \"key2\": \"key3\"}, \"deeplink\": \"\", \"expiry\": 1766319711, \"image\": \"\", \"message\": \"Rating Push Notification\", \"publishedDate\": \"2025-11-21T17:51:51.490397\", \"sound\": true, \"status\": \"sent\", \"subtitle\": \"\", \"title\": \"Rating Push Notification\", \"trid\": \"175567-591-13872-0-20251121175151-T\", \"type\": \"Simple\"}",
+  "smtUi": "{\"flid\": 1, \"lid\": 1, \"rat\": {\"cbt\": \"Submit\", \"dl\": \"\", \"sc\": 5, \"si\": \"https://cdna.netcoresmartech.com/14340/1680080201.png\", \"ty\": 1, \"ui\": \"https://cdna.netcoresmartech.com/14340/1680076013.png\"}}",
+  "smtCustomPayload": "{\"key1\": \"value1\", \"key2\": \"key3\"}"
+}
+2025-11-21 17:51:51,490 - INFO - ================================================================================
+2025-11-21 17:51:52,201 - INFO - Successfully sent notification to draY6WCzSciniCqnb8utwO:APA91bFzD_gJpEMuQkU3ybBTSoI2Udp1tr102HQpRxyiEz6kooBpXfl2YhdahmGjy0GCHq2SXv4M9o0qaURF_5WilcX8QyQaEkqOmWZO9uNrra2p04XXU-4. Message ID: projects/android-project-ecomapp/messages/0:1763727712167639%6c8bbd1af9fd7ecd
+2025-11-21 17:51:52,202 - INFO - push_notification_sent: {"template": "rating", "device": "draY6WCzSciniCqnb8ut...", "message_id": "projects/android-project-ecomapp/messages/0:1763727712167639%6c8bbd1af9fd7ecd", "timestamp": "2025-11-21T17:51:52.202388"}
+2025-11-21 17:51:52,203 - INFO - Response: b'{\n  "device_token": "draY6WCzSciniCqnb8utwO:APA91bFzD_gJpEMuQkU3ybBTSoI2Udp1tr102HQpRxyiEz6kooBpXfl2YhdahmGjy0GCHq2SXv4M9o0qaURF_5WilcX8QyQaEkqOmWZO9uNrra2p04XXU-4",\n  "message": "Push notification sent successfully",\n  "message_id": "projects/android-project-ecomapp/messages/0:1763727712167639%6c8bbd1af9fd7ecd",\n  "status": "Sent Successfully",\n  "status_color": "bg-success",\n  "success": true,\n  "template_type": "rating",\n  "timestamp": "2025-11-21T17:51:52.202638"\n}\n'
+2025-11-21 17:51:52,203 - INFO - 127.0.0.1 - - [21/Nov/2025 17:51:52] "POST /send-push-notification HTTP/1.1" 200 -
+2025-11-21 17:51:58,622 - INFO - Headers: Host: localhost:10000
+Connection: keep-alive
+Content-Length: 272
+Sec-Ch-Ua-Platform: "macOS"
+X-Requested-With: XMLHttpRequest
+User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36
+Accept: */*
+Sec-Ch-Ua: "Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"
+Content-Type: application/json
+Sec-Ch-Ua-Mobile: ?0
+Origin: http://localhost:10000
+Sec-Fetch-Site: same-origin
+Sec-Fetch-Mode: cors
+Sec-Fetch-Dest: empty
+Referer: http://localhost:10000/push-notification
+Accept-Encoding: gzip, deflate, br, zstd
+Accept-Language: en-GB,en-US;q=0.9,en;q=0.8
+Cookie: G_ENABLED_IDPS=google; g_state={"i_l":0,"i_ll":1761932652460,"i_b":"PC6TgPeVdCRrApqPyLSK1E0B4dpwNQ8S1CDxzKuUuww"}; remember_token=1|4a0a1dd5ea69791275ae2b251699461e736c025cf4fb0f77f0c42c0d1fd1a0babb890f89790bdc3ee870dadc8cd491e40975fbd7051499a8968ac58402795831
+
+
+2025-11-21 17:51:58,623 - INFO - Body: b'{"template_type":"rating","fcm_token":"draY6WCzSciniCqnb8utwO:APA91bFzD_gJpEMuQkU3ybBTSoI2Udp1tr102HQpRxyiEz6kooBpXfl2YhdahmGjy0GCHq2SXv4M9o0qaURF_5WilcX8QyQaEkqOmWZO9uNrra2p04XXU-4","deeplink":"","image_link":"","custom_payload":"{\\"key1\\":\\"value1\\",\\"key2\\":\\"key3\\"}"}'
+2025-11-21 17:51:58,623 - INFO - URL: http://localhost:10000/send-push-notification
+2025-11-21 17:51:58,623 - INFO - Method: POST
+2025-11-21 17:51:58,623 - INFO - Endpoint: send_push_notification
+2025-11-21 17:51:58,640 - INFO - Deleted existing Firebase app instance
+2025-11-21 17:51:58,735 - INFO - Firebase initialized successfully with /var/folders/q0/crpf2_g53vd_p40scnm76q7w0000gq/T/tmp348ff11y.json
+2025-11-21 17:51:58,735 - INFO - ================================================================================
+2025-11-21 17:51:58,735 - INFO - COMPLETE PAYLOAD BEING SENT:
+2025-11-21 17:51:58,735 - INFO - ================================================================================
+2025-11-21 17:51:58,735 - INFO - Template Type: rating
+2025-11-21 17:51:58,735 - INFO - FCM Token: draY6WCzSciniCqnb8utwO:APA91bFzD_gJpEMuQkU3ybBTSoI2Udp1tr102HQpRxyiEz6kooBpXfl2YhdahmGjy0GCHq2SXv4M9o0qaURF_5WilcX8QyQaEkqOmWZO9uNrra2p04XXU-4
+2025-11-21 17:51:58,735 - INFO - Full Payload (JSON):
+{
+  "smtSrc": "Smartech",
+  "data": {
+    "actionButton": [],
+    "attrParams": {},
+    "carousel": [],
+    "customPayload": {
+      "key1": "value1",
+      "key2": "key3"
+    },
+    "deeplink": "",
+    "expiry": 1766319718,
+    "image": "",
+    "message": "Rating Push Notification",
+    "publishedDate": "2025-11-21T17:51:58.735108",
+    "sound": true,
+    "status": "sent",
+    "subtitle": "",
+    "title": "Rating Push Notification",
+    "trid": "175567-591-13872-0-20251121175158-T",
+    "type": "Simple"
+  },
+  "trid": "175567-591-13872-0-20251121175158-T",
+  "smtUi": {
+    "flid": 1,
+    "lid": 1,
+    "rat": {
+      "cbt": "Submit",
+      "dl": "",
+      "sc": 5,
+      "si": "https://cdna.netcoresmartech.com/14340/1680080201.png",
+      "ty": 1,
+      "ui": "https://cdna.netcoresmartech.com/14340/1680076013.png"
+    }
+  },
+  "smtCustomPayload": {
+    "key1": "value1",
+    "key2": "key3"
+  }
+}
+2025-11-21 17:51:58,735 - INFO - ================================================================================
+2025-11-21 17:51:58,735 - INFO - ================================================================================
+2025-11-21 17:51:58,735 - INFO - FCM MESSAGE DATA (converted to strings):
+2025-11-21 17:51:58,735 - INFO - ================================================================================
+2025-11-21 17:51:58,735 - INFO - Data Dict (JSON):
+{
+  "smtSrc": "Smartech",
+  "trid": "175567-591-13872-0-20251121175158-T",
+  "data": "{\"actionButton\": [], \"attrParams\": {}, \"carousel\": [], \"customPayload\": {\"key1\": \"value1\", \"key2\": \"key3\"}, \"deeplink\": \"\", \"expiry\": 1766319718, \"image\": \"\", \"message\": \"Rating Push Notification\", \"publishedDate\": \"2025-11-21T17:51:58.735108\", \"sound\": true, \"status\": \"sent\", \"subtitle\": \"\", \"title\": \"Rating Push Notification\", \"trid\": \"175567-591-13872-0-20251121175158-T\", \"type\": \"Simple\"}",
+  "smtUi": "{\"flid\": 1, \"lid\": 1, \"rat\": {\"cbt\": \"Submit\", \"dl\": \"\", \"sc\": 5, \"si\": \"https://cdna.netcoresmartech.com/14340/1680080201.png\", \"ty\": 1, \"ui\": \"https://cdna.netcoresmartech.com/14340/1680076013.png\"}}",
+  "smtCustomPayload": "{\"key1\": \"value1\", \"key2\": \"key3\"}"
+}
+2025-11-21 17:51:58,735 - INFO - ================================================================================
+2025-11-21 17:51:59,166 - INFO - Successfully sent notification to draY6WCzSciniCqnb8utwO:APA91bFzD_gJpEMuQkU3ybBTSoI2Udp1tr102HQpRxyiEz6kooBpXfl2YhdahmGjy0GCHq2SXv4M9o0qaURF_5WilcX8QyQaEkqOmWZO9uNrra2p04XXU-4. Message ID: projects/android-project-ecomapp/messages/0:1763727719136305%6c8bbd1af9fd7ecd
+2025-11-21 17:51:59,166 - INFO - push_notification_sent: {"template": "rating", "device": "draY6WCzSciniCqnb8ut...", "message_id": "projects/android-project-ecomapp/messages/0:1763727719136305%6c8bbd1af9fd7ecd", "timestamp": "2025-11-21T17:51:59.166522"}
+2025-11-21 17:51:59,167 - INFO - Response: b'{\n  "device_token": "draY6WCzSciniCqnb8utwO:APA91bFzD_gJpEMuQkU3ybBTSoI2Udp1tr102HQpRxyiEz6kooBpXfl2YhdahmGjy0GCHq2SXv4M9o0qaURF_5WilcX8QyQaEkqOmWZO9uNrra2p04XXU-4",\n  "message": "Push notification sent successfully",\n  "message_id": "projects/android-project-ecomapp/messages/0:1763727719136305%6c8bbd1af9fd7ecd",\n  "status": "Sent Successfully",\n  "status_color": "bg-success",\n  "success": true,\n  "template_type": "rating",\n  "timestamp": "2025-11-21T17:51:59.166740"\n}\n'
+2025-11-21 17:51:59,167 - INFO - 127.0.0.1 - - [21/Nov/2025 17:51:59] "POST /send-push-notification HTTP/1.1" 200 -
