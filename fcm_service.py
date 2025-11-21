@@ -33,6 +33,7 @@ class FCMTemplateFactory:
             Complete remote message payload
         """
         expiry = int((datetime.now() + timedelta(days=30)).timestamp())
+        notification_type = "Image" if image_link else "Simple"
         
         base_payload = {
             "smtSrc": "Smartech",
@@ -51,7 +52,7 @@ class FCMTemplateFactory:
                 "subtitle": "",
                 "title": "Rating Push Notification",
                 "trid": f"175567-591-13872-0-{datetime.now().strftime('%Y%m%d%H%M%S')}-T",
-                "type": "Simple"
+                "type": notification_type
             },
             "trid": f"175567-591-13872-0-{datetime.now().strftime('%Y%m%d%H%M%S')}-T",
             "smtUi": {
@@ -81,6 +82,7 @@ class FCMTemplateFactory:
     ) -> Dict[str, Any]:
         """Create a Simple push notification template"""
         expiry = int((datetime.now() + timedelta(days=30)).timestamp())
+        notification_type = "Image" if image_link else "Simple"
         
         base_payload = {
             "smtSrc": "Smartech",
@@ -99,7 +101,7 @@ class FCMTemplateFactory:
                 "subtitle": "",
                 "title": title,
                 "trid": f"175567-591-13872-0-{datetime.now().strftime('%Y%m%d%H%M%S')}-T",
-                "type": "Simple"
+                "type": notification_type
             },
             "trid": f"175567-591-13872-0-{datetime.now().strftime('%Y%m%d%H%M%S')}-T",
             "smtUi": {},
