@@ -7,3 +7,4 @@ click==8.1.7
 pywatchman==2.0.0
 gunicorn==23.0.0
 flask-cors==3.0.10
+firebase-admin==6.5.0

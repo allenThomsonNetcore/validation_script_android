@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FCM Push Notification Sender</title>
+    <link rel="icon" type="image/png" href="/static/favicon.png">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #e35502;
+            --header-bg: #230f2e;
+        }
+        #addPayloadPair{
+            color: #d1d1d1;
+            background-color: #230f2e;
+        }
+        .bg-info {
+            background-color: #230f2e !important;
+            color: #230f2e;
+        }
+       
+        .container { margin-top: 30px; }
+        .form-label { font-weight: 600; color: #333; }
+        
+        /* Header styling */
+        .navbar {
+            background-color: var(--header-bg) !important;
+        }
+        
+        .navbar-brand, .navbar-nav .nav-link {
+            color: white !important;
+        }
+        
+        .navbar-brand img {
+            height: 40px;
+            width: auto;
+            filter: brightness(0) invert(1);
+        }
+        
+        @media (max-width: 768px) {
+            .navbar-brand img {
+                height: 30px;
+            }
+            .navbar-brand span {
+                font-size: 0.9rem;
+            }
+        }
+        
+        .navbar-toggler {
+            border-color: rgba(255,255,255,0.5);
+        }
+        
+        .navbar-toggler-icon {
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.75%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+        }
+        
+        /* Button styling */
+        .btn-primary {
+            background-color: var(--primary-color) !important;
+            border-color: var(--primary-color) !important;
+        }
+        
+        .btn-primary:hover {
+            background-color: #c64802 !important;
+            border-color: #c64802 !important;
+        }
+        
+        .btn-outline-primary {
+            color: white !important;
+            border-color: white !important;
+        }
+        
+        .btn-outline-primary:hover {
+            background-color: rgba(255,255,255,0.1) !important;
+        }
+        
+        .alert {
+            border-radius: 5px;
+        }
+        
+        .status-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            padding: 12px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        
+        .status-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            padding: 12px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+        
+        .status-info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+            padding: 12px;
+            border-radius: 5px;
+            margin-top: 10px;
+        }
+
+        .payload-key,
+        .payload-value {
+            font-size: 0.9rem;
+        }
+
+        .remove-pair {
+            font-size: 0.85rem;
+            padding: 0.3rem 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar matching main page -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container-fluid">
+            <a class="navbar-brand d-flex align-items-center" href="/">
+                <img src="/static/netcore_logo.png" alt="Netcore Logo" height="40" class="me-2">
+                <span> Payload Validator</span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="btn btn-primary" href="/">← Back to Validation</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h2>📱 FCM Push Notification Sender</h2>
+        
+        <div class="card mb-4">
+            <div class="card-body">
+                <form id="fcmForm" enctype="multipart/form-data">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="privateKeysFile" class="form-label">
+                                    Firebase Private Key (JSON)
+                                    <span id="credentialsUploadedBadge" class="badge bg-success ms-2" style="display: none;background-color: #230f2e !important; color: #f9f9f9;">✓ Uploaded</span>
+                                </label>
+                                <input type="file" class="form-control" id="privateKeysFile" name="private_keys" accept=".json">
+                                <small class="form-text text-muted">Upload your Firebase service account JSON file</small>
+                                <div id="credentialsStatus" class="mt-2"></div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="fcmToken" class="form-label">FCM Device Token</label>
+                                <input type="text" class="form-control" id="fcmToken" name="fcm_token" placeholder="e.g., eW8C5Nx8u5I:..." required>
+                                <small class="form-text text-muted">Firebase Cloud Messaging token from your device</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="notificationTemplate" class="form-label">Notification Template</label>
+                        <select class="form-control" id="notificationTemplate" required>
+                            <option value="">-- Select a template --</option>
+                            <option value="rating">Rating Push Notification</option>
+                            <option value="simple">Simple Push Notification</option>
+                        </select>
+                    </div>
+
+                    <!-- Simple Template Fields -->
+                    <div id="simpleTemplateFields" style="display: none;">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="notificationTitle" class="form-label">Title</label>
+                                    <input type="text" class="form-control" id="notificationTitle" placeholder="Enter notification title">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="notificationMessage" class="form-label">Message</label>
+                                    <input type="text" class="form-control" id="notificationMessage" placeholder="Enter notification message">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Common Fields for all templates -->
+                    <div id="commonTemplateFields" style="display: none;">
+                        <div class="mb-3">
+                            <label for="deeplinkUrl" class="form-label">Deep Link URL (Optional)</label>
+                            <input type="text" class="form-control" id="deeplinkUrl" placeholder="e.g., myapp://screen/product/123">
+                            <small class="form-text text-muted">URL to navigate to when notification is clicked</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Custom Payload (Optional)</label>
+                            <div id="payloadKeyValuePairs" class="mb-3">
+                                <!-- Key-value pairs will be added here dynamically -->
+                            </div>
+                            <button type="button" class="btn btn-sm btn-success" id="addPayloadPair">
+                                <i class="bi bi-plus"></i> Add Key-Value Pair
+                            </button>
+                            <div id="formPayloadError" class="alert alert-danger mt-2" style="display: none;"></div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <button type="submit" class="btn btn-primary">Send Push Notification</button>
+                        <div id="pushNotificationStatus" class="mt-3"></div>
+                        <div id="fcmResponseDetails" class="mt-3" style="display: none;">
+                            <div class="card border-info">
+                                <div class="card-header bg-info text-white">
+                                    <h6 class="mb-0">FCM Response Details</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <p class="mb-2"><strong>Message ID:</strong></p>
+                                            <p id="messageId" class="text-monospace" style="font-family: monospace; word-break: break-all;">-</p>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <p class="mb-2"><strong>Template Type:</strong></p>
+                                            <p id="templateType">-</p>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <p class="mb-2"><strong>Device Token:</strong></p>
+                                            <p id="deviceToken" class="text-monospace" style="font-family: monospace; word-break: break-all;">-</p>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <p class="mb-2"><strong>Timestamp:</strong></p>
+                                            <p id="timestamp">-</p>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-12">
+                                            <p class="mb-2"><strong>Status:</strong></p>
+                                            <p id="deliveryStatus" class="badge bg-success">Sent Successfully</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Template Information -->
+        <!-- <div class="card mb-4">
+            <div class="card-body">
+                <h5 class="card-title">📋 Available Templates</h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Rating Push Notification</h6>
+                        <p class="text-muted small">Sends an in-app rating request with customizable UI. Includes deep link support for navigation and automatic 30-day message expiry.</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Simple Push Notification</h6>
+                        <p class="text-muted small">Standard notification with title and message. Supports deep links and custom payload data for flexible app integration.</p>
+                    </div>
+                </div>
+            </div>
+        </div> -->
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            // ==================== LOCAL STORAGE PERSISTENCE ====================
+            
+            // Load saved FCM token and key-value pairs on page load
+            function loadSavedData() {
+                const savedFcmToken = localStorage.getItem('fcm_token');
+                const savedKeyValuePairs = localStorage.getItem('fcm_custom_payload_pairs');
+                
+                if (savedFcmToken) {
+                    $('#fcmToken').val(savedFcmToken);
+                }
+                
+                // Load saved key-value pairs
+                if (savedKeyValuePairs) {
+                    try {
+                        const pairs = JSON.parse(savedKeyValuePairs);
+                        for (const [key, value] of Object.entries(pairs)) {
+                            addPayloadPair(key, value);
+                        }
+                    } catch (e) {
+                        console.error('Failed to load saved payload pairs:', e);
+                    }
+                }
+            }
+            
+            // Save data to localStorage (excludes sensitive credentials)
+            function saveToLocalStorage() {
+                const fcmToken = $('#fcmToken').val();
+                if (fcmToken) {
+                    localStorage.setItem('fcm_token', fcmToken);
+                }
+                
+                // Save key-value pairs
+                const formPayload = getFormPayloadAsJson();
+                if (Object.keys(formPayload).length > 0) {
+                    localStorage.setItem('fcm_custom_payload_pairs', JSON.stringify(formPayload));
+                }
+            }
+            
+            // Track if credentials are uploaded to server
+            let credentialsUploadedToServer = localStorage.getItem('credentialsUploadedToServer') === 'true';
+            
+            // Update credential status display on page load
+            function updateCredentialStatusDisplay() {
+                if (credentialsUploadedToServer) {
+                    // $('#credentialsStatus').html('<div class="status-success">✓ Firebase credentials uploaded and validated successfully</div>');
+                    $('#credentialsUploadedBadge').show();
+                }
+            }
+            
+            // Save private key when file is selected
+            $('#privateKeysFile').change(function() {
+                const file = this.files[0];
+                if (!file) {
+                    // If file is cleared, hide badge but keep the flag for next upload
+                    $('#credentialsUploadedBadge').hide();
+                    return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const credentials = e.target.result;
+                    
+                    const statusDiv = $('#credentialsStatus');
+                    statusDiv.html('<div class="status-info">Uploading and validating credentials...</div>');
+
+                    $.ajax({
+                        url: '/validate-fcm-credentials',
+                        method: 'POST',
+                        data: JSON.stringify({ credentials: credentials }),
+                        contentType: 'application/json',
+                        success: function(response) {
+                            if (response.valid) {
+                                credentialsUploadedToServer = true;
+                                localStorage.setItem('credentialsUploadedToServer', 'true');
+                                statusDiv.html('<div class="status-success">✓ Firebase credentials uploaded and validated successfully</div>');
+                                $('#credentialsUploadedBadge').show();
+                            } else {
+                                credentialsUploadedToServer = false;
+                                localStorage.setItem('credentialsUploadedToServer', 'false');
+                                statusDiv.html('<div class="status-error">✗ ' + (response.message || 'Validation failed') + '</div>');
+                                $('#credentialsUploadedBadge').hide();
+                            }
+                        },
+                        error: function(xhr, status, error) {
+                            credentialsUploadedToServer = false;
+                            localStorage.setItem('credentialsUploadedToServer', 'false');
+                            const errorMsg = xhr.responseJSON?.message || error || 'Unknown error';
+                            statusDiv.html('<div class="status-error">✗ Error: ' + errorMsg + '</div>');
+                            $('#credentialsUploadedBadge').hide();
+                        }
+                    });
+                };
+                reader.readAsText(file);
+            });
+            
+            // Save token on blur
+            $('#fcmToken').on('blur', function() {
+                saveToLocalStorage();
+            });
+            
+            // Save key-value pairs whenever they change
+            $(document).on('change', '.payload-key, .payload-value', function() {
+                saveToLocalStorage();
+            });
+            
+            // ==================== CUSTOM PAYLOAD KEY-VALUE FORM ====================
+            
+            let payloadPairCount = 0;
+            
+            // Add new key-value pair
+            $('#addPayloadPair').click(function() {
+                addPayloadPair();
+            });
+            
+            function addPayloadPair(key = '', value = '') {
+                payloadPairCount++;
+                const pairId = 'pair-' + payloadPairCount;
+                
+                const pairHtml = `
+                    <div class="row mb-2" id="${pairId}">
+                        <div class="col-md-5">
+                            <input type="text" class="form-control payload-key" placeholder="Key" value="${key}">
+                        </div>
+                        <div class="col-md-5">
+                            <input type="text" class="form-control payload-value" placeholder="Value" value="${value}">
+                        </div>
+                        <div class="col-md-2">
+                            <button type="button" class="btn btn-sm btn-danger remove-pair" data-pair-id="${pairId}">Remove</button>
+                        </div>
+                    </div>
+                `;
+                
+                $('#payloadKeyValuePairs').append(pairHtml);
+            }
+            
+            // Remove key-value pair
+            $(document).on('click', '.remove-pair', function() {
+                const pairId = $(this).data('pair-id');
+                $('#' + pairId).remove();
+            });
+            
+            // Convert form payload to JSON
+            function getFormPayloadAsJson() {
+                const pairs = {};
+                $('#payloadKeyValuePairs .row').each(function() {
+                    const key = $(this).find('.payload-key').val().trim();
+                    const value = $(this).find('.payload-value').val().trim();
+                    
+                    if (key) {
+                        pairs[key] = value;
+                    }
+                });
+                return pairs;
+            }
+            
+            // ==================== TEMPLATE SELECTION ====================
+            
+            // Toggle template-specific fields based on selection
+            $('#notificationTemplate').change(function() {
+                const template = $(this).val();
+                if (template) {
+                    $('#simpleTemplateFields').toggle(template === 'simple');
+                    $('#commonTemplateFields').show();
+                } else {
+                    $('#simpleTemplateFields').hide();
+                    $('#commonTemplateFields').hide();
+                }
+            });
+            
+            // ==================== FORM SUBMISSION ====================
+            
+            // Handle form submission
+            $('#fcmForm').submit(function(e) {
+                e.preventDefault();
+
+                const template = $('#notificationTemplate').val();
+                if (!template) {
+                    alert('Please select a notification template');
+                    return;
+                }
+
+                // Check if credentials are uploaded
+                if (!credentialsUploadedToServer) {
+                    alert('Please upload Firebase private key file first');
+                    return;
+                }
+
+                // Get custom payload from form
+                const formPayload = getFormPayloadAsJson();
+                let customPayload = '';
+                
+                if (Object.keys(formPayload).length > 0) {
+                    customPayload = JSON.stringify(formPayload);
+                }
+
+                const fcmToken = $('#fcmToken').val();
+                if (!fcmToken) {
+                    alert('Please enter FCM device token');
+                    return;
+                }
+                
+                // Save token to localStorage
+                saveToLocalStorage();
+                
+                // Build request payload (NO credentials sent)
+                const requestPayload = {
+                    template_type: template,
+                    fcm_token: fcmToken,
+                    deeplink: $('#deeplinkUrl').val().trim() || ''
+                };
+
+                // Add template-specific fields
+                if (template === 'simple') {
+                    requestPayload.title = $('#notificationTitle').val().trim();
+                    requestPayload.message = $('#notificationMessage').val().trim();
+                }
+
+                // Add custom payload if present
+                if (customPayload) {
+                    requestPayload.custom_payload = customPayload;
+                }
+
+                const statusDiv = $('#pushNotificationStatus');
+                statusDiv.html('<div class="status-info">Sending push notification...</div>');
+
+                $.ajax({
+                    url: '/send-push-notification',
+                    method: 'POST',
+                    data: JSON.stringify(requestPayload),
+                    contentType: 'application/json',
+                    success: function(response) {
+                        if (response.success) {
+                            statusDiv.html('<div class="status-success">✓ Push notification sent successfully!</div>');
+                            
+                            // Display detailed FCM response
+                            $('#messageId').text(response.message_id || 'N/A');
+                            $('#templateType').text(response.template_type || template);
+                            $('#deviceToken').text(response.device_token ? response.device_token.substring(0, 30) + '...' : fcmToken.substring(0, 30) + '...');
+                            $('#timestamp').text(response.timestamp || new Date().toISOString());
+                            $('#deliveryStatus').text(response.status || 'Sent Successfully').removeClass('bg-danger bg-warning').addClass('bg-success');
+                            $('#fcmResponseDetails').show();
+                        } else {
+                            statusDiv.html('<div class="status-error">✗ ' + (response.message || 'Failed to send notification') + '</div>');
+                            $('#fcmResponseDetails').hide();
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        const errorMsg = xhr.responseJSON?.message || error || 'Unknown error';
+                        statusDiv.html('<div class="status-error">✗ Error: ' + errorMsg + '</div>');
+                        $('#fcmResponseDetails').hide();
+                    }
+                });
+            });
+            
+            // Load saved data on page load
+            loadSavedData();
+            updateCredentialStatusDisplay();
+        });
+    </script>
+</body>
+</html>

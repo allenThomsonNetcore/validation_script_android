@@ -363,6 +363,14 @@ def test_endpoint():
 def index():
     return render_template('index.html')
 
+# FCM Service initialization
+fcm_service = None
+stored_fcm_credentials = None  # Store credentials server-side
+
+@app.route('/push-notification')
+def push_notification():
+    return render_template('push_notification.html')
+
 @app.route('/static/<path:path>')
 def send_static(path):
     return send_from_directory('static', path)
@@ -1605,6 +1613,170 @@ def download_valid_events():
     except Exception as e:
         app.logger.error(f'Error in download valid events endpoint: {str(e)}')
         return jsonify({'error': str(e)}), 500
+
+# ==================== FCM Push Notification Endpoints ====================
+
+# Global FCM Service instance
+fcm_service = None
+
+@app.route('/validate-fcm-credentials', methods=['POST', 'OPTIONS'])
+def validate_fcm_credentials():
+    """Validate and store FCM credentials server-side"""
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    global fcm_service, stored_fcm_credentials
+    
+    try:
+        data = request.get_json()
+        credentials_json = data.get('credentials', '')
+        
+        if not credentials_json:
+            return jsonify({"valid": False, "message": "No credentials provided"}), 400
+        
+        # Parse to validate it's valid JSON
+        try:
+            creds_obj = json.loads(credentials_json)
+            if not creds_obj.get('private_key'):
+                return jsonify({"valid": False, "message": "Invalid Firebase credentials format"}), 400
+        except json.JSONDecodeError:
+            return jsonify({"valid": False, "message": "Credentials must be valid JSON"}), 400
+        
+        # Save credentials to temporary file for validation
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            f.write(credentials_json)
+            temp_creds_path = f.name
+        
+        # Initialize FCM service to validate
+        from fcm_service import FCMService
+        if fcm_service is None:
+            fcm_service = FCMService()
+        
+        success, message = fcm_service.initialize(temp_creds_path)
+        
+        if success:
+            # Clean up temp file
+            try:
+                os.remove(temp_creds_path)
+            except:
+                pass
+            
+            # Store credentials server-side for later use
+            stored_fcm_credentials = credentials_json
+            
+            app.logger.info("FCM credentials validated and stored server-side")
+            return jsonify({"valid": True, "message": "Credentials validated and stored"}), 200
+        else:
+            try:
+                os.remove(temp_creds_path)
+            except:
+                pass
+            return jsonify({"valid": False, "message": message}), 400
+            
+    except Exception as e:
+        app.logger.error(f'Error validating FCM credentials: {str(e)}')
+        return jsonify({"valid": False, "message": str(e)}), 500
+
+@app.route('/send-push-notification', methods=['POST', 'OPTIONS'])
+def send_push_notification():
+    """Send push notification via FCM using stored credentials"""
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    global fcm_service, stored_fcm_credentials
+    
+    try:
+        data = request.get_json()
+        
+        template_type = data.get('template_type')
+        fcm_token = data.get('fcm_token')
+        deeplink = data.get('deeplink', '')
+        custom_payload_str = data.get('custom_payload', '')
+        
+        # Validate input
+        if not template_type or not fcm_token:
+            return jsonify({"success": False, "error": "Missing required fields"}), 400
+        
+        # Use stored credentials
+        if not stored_fcm_credentials:
+            return jsonify({"success": False, "error": "Firebase credentials not loaded. Please upload credentials file first."}), 400
+        
+        # Parse custom payload if provided
+        custom_payload = {}
+        if custom_payload_str:
+            try:
+                custom_payload = json.loads(custom_payload_str)
+            except json.JSONDecodeError:
+                return jsonify({"success": False, "error": "Invalid JSON in custom payload"}), 400
+        
+        # Initialize or reinitialize FCM service with stored credentials
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            f.write(stored_fcm_credentials)
+            temp_creds_path = f.name
+        
+        # Initialize FCM service
+        from fcm_service import FCMService
+        fcm_service = FCMService()
+        
+        success, message = fcm_service.initialize(temp_creds_path)
+        if not success:
+            return jsonify({"success": False, "error": f"Failed to initialize FCM: {message}"}), 400
+        
+        # Import template factory
+        from fcm_service import FCMTemplateFactory
+        
+        # Create payload based on template type
+        if template_type == 'rating':
+            payload = FCMTemplateFactory.create_rating_template(deeplink, custom_payload)
+        elif template_type == 'simple':
+            title = data.get('title', 'Simple Notification')
+            message = data.get('message', '')
+            payload = FCMTemplateFactory.create_simple_template(title, message, deeplink, custom_payload)
+        else:
+            return jsonify({"success": False, "error": "Unknown template type"}), 400
+        
+        # Send notification
+        success, result = fcm_service.send_notification(fcm_token, payload, template_type)
+        
+        if success:
+            log_validation_event('push_notification_sent', {
+                'template': template_type,
+                'device': fcm_token[:20] + '...',
+                'message_id': result,
+                'timestamp': datetime.now().isoformat()
+            })
+            
+            return jsonify({
+                "success": True,
+                "message_id": result,
+                "template_type": template_type,
+                "device_token": fcm_token,
+                "status": "Sent Successfully",
+                "status_color": "bg-success",
+                "timestamp": datetime.now().isoformat(),
+                "message": "Push notification sent successfully"
+            }), 200
+        else:
+            log_validation_event('push_notification_failed', {
+                'template': template_type,
+                'device': fcm_token[:20] + '...',
+                'error': result,
+                'timestamp': datetime.now().isoformat()
+            })
+            
+            return jsonify({
+                "success": False,
+                "status": "Failed",
+                "status_color": "bg-danger",
+                "timestamp": datetime.now().isoformat(),
+                "error": result
+            }), 400
+            
+    except Exception as e:
+        app.logger.error(f'Error sending push notification: {str(e)}')
+        return jsonify({"success": False, "error": str(e)}), 500
 
 if __name__ == '__main__':
     import os
