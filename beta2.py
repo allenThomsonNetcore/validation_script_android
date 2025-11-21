@@ -1692,6 +1692,7 @@ def send_push_notification():
         template_type = data.get('template_type')
         fcm_token = data.get('fcm_token')
         deeplink = data.get('deeplink', '')
+        image_link = data.get('image_link', '')
         custom_payload_str = data.get('custom_payload', '')
         
         # Validate input
@@ -1729,11 +1730,11 @@ def send_push_notification():
         
         # Create payload based on template type
         if template_type == 'rating':
-            payload = FCMTemplateFactory.create_rating_template(deeplink, custom_payload)
+            payload = FCMTemplateFactory.create_rating_template(deeplink, custom_payload, image_link)
         elif template_type == 'simple':
             title = data.get('title', 'Simple Notification')
             message = data.get('message', '')
-            payload = FCMTemplateFactory.create_simple_template(title, message, deeplink, custom_payload)
+            payload = FCMTemplateFactory.create_simple_template(title, message, deeplink, custom_payload, image_link)
         else:
             return jsonify({"success": False, "error": "Unknown template type"}), 400
         

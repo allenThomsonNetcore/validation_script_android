@@ -18,7 +18,8 @@ class FCMTemplateFactory:
     @staticmethod
     def create_rating_template(
         deeplink: str = "",
-        custom_payload: Optional[Dict] = None
+        custom_payload: Optional[Dict] = None,
+        image_link: str = ""
     ) -> Dict[str, Any]:
         """
         Create a Rating push notification template
@@ -26,6 +27,7 @@ class FCMTemplateFactory:
         Args:
             deeplink: URL to navigate to when notification is clicked
             custom_payload: Optional custom JSON payload
+            image_link: URL to the notification image
             
         Returns:
             Complete remote message payload
@@ -41,17 +43,17 @@ class FCMTemplateFactory:
                 "customPayload": custom_payload or {},
                 "deeplink": deeplink,
                 "expiry": expiry,
-                "image": "",
+                "image": image_link,
                 "message": "Rating Push Notification",
                 "publishedDate": datetime.now().isoformat(),
                 "sound": True,
                 "status": "sent",
                 "subtitle": "",
                 "title": "Rating Push Notification",
-                "trid": f"175567-591-13872-0-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+                "trid": f"175567-591-13872-0-{datetime.now().strftime('%Y%m%d%H%M%S')}-T",
                 "type": "Simple"
             },
-            "trid": f"175567-591-13872-0-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+            "trid": f"175567-591-13872-0-{datetime.now().strftime('%Y%m%d%H%M%S')}-T",
             "smtUi": {
                 "flid": 1,
                 "lid": 1,
@@ -74,7 +76,8 @@ class FCMTemplateFactory:
         title: str = "Simple Notification",
         message: str = "",
         deeplink: str = "",
-        custom_payload: Optional[Dict] = None
+        custom_payload: Optional[Dict] = None,
+        image_link: str = ""
     ) -> Dict[str, Any]:
         """Create a Simple push notification template"""
         expiry = int((datetime.now() + timedelta(days=30)).timestamp())
@@ -88,17 +91,17 @@ class FCMTemplateFactory:
                 "customPayload": custom_payload or {},
                 "deeplink": deeplink,
                 "expiry": expiry,
-                "image": "",
+                "image": image_link,
                 "message": message,
                 "publishedDate": datetime.now().isoformat(),
                 "sound": True,
                 "status": "sent",
                 "subtitle": "",
                 "title": title,
-                "trid": f"175567-591-13872-0-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+                "trid": f"175567-591-13872-0-{datetime.now().strftime('%Y%m%d%H%M%S')}-T",
                 "type": "Simple"
             },
-            "trid": f"175567-591-13872-0-{datetime.now().strftime('%Y%m%d%H%M%S')}",
+            "trid": f"175567-591-13872-0-{datetime.now().strftime('%Y%m%d%H%M%S')}-T",
             "smtUi": {},
             "smtCustomPayload": custom_payload or {}
         }

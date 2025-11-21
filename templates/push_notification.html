@@ -201,6 +201,12 @@
                         </div>
 
                         <div class="mb-3">
+                            <label for="imageLink" class="form-label">Image Link (Optional)</label>
+                            <input type="text" class="form-control" id="imageLink" placeholder="e.g., https://example.com/image.png">
+                            <small class="form-text text-muted">URL to the notification image</small>
+                        </div>
+
+                        <div class="mb-3">
                             <label class="form-label">Custom Payload (Optional)</label>
                             <div id="payloadKeyValuePairs" class="mb-3">
                                 <!-- Key-value pairs will be added here dynamically -->
@@ -485,7 +491,8 @@
                 const requestPayload = {
                     template_type: template,
                     fcm_token: fcmToken,
-                    deeplink: $('#deeplinkUrl').val().trim() || ''
+                    deeplink: $('#deeplinkUrl').val().trim() || '',
+                    image_link: $('#imageLink').val().trim() || ''
                 };
 
                 // Add template-specific fields
