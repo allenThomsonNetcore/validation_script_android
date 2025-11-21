@@ -201,6 +201,15 @@ class FCMService:
             return False, "Firebase not initialized. Please upload credentials first."
         
         try:
+            # Log the complete original payload
+            logger.info("="*80)
+            logger.info("COMPLETE PAYLOAD BEING SENT:")
+            logger.info("="*80)
+            logger.info(f"Template Type: {template_type}")
+            logger.info(f"FCM Token: {fcm_token}")
+            logger.info(f"Full Payload (JSON):\n{json.dumps(payload, indent=2)}")
+            logger.info("="*80)
+            
             title = payload.get("data", {}).get("title", "")
             body = payload.get("data", {}).get("message", "")
             
@@ -226,6 +235,13 @@ class FCMService:
             # Add smtCustomPayload as JSON string
             if "smtCustomPayload" in payload:
                 data_dict["smtCustomPayload"] = json.dumps(payload["smtCustomPayload"])
+            
+            # Log the converted FCM message data
+            logger.info("="*80)
+            logger.info("FCM MESSAGE DATA (converted to strings):")
+            logger.info("="*80)
+            logger.info(f"Data Dict (JSON):\n{json.dumps(data_dict, indent=2)}")
+            logger.info("="*80)
             
             # Create Android message with the complete payload structure
             message = messaging.Message(
