@@ -197,6 +197,7 @@ def normalize_key(key):
 def parse_csv_with_case_normalization(csv_reader):
     """Parse CSV and normalize event names and field names to lowercase"""
     event_validations = {}
+    events_without_payload = set()
     current_event = None
     
     for row in csv_reader:
@@ -204,19 +205,42 @@ def parse_csv_with_case_normalization(csv_reader):
         if event_name:
             current_event = event_name
         
-        if current_event:
-            if current_event not in event_validations:
-                event_validations[current_event] = []
-            
-            validation = {
-                'key': row.get('eventPayload', '').strip().lower(),  # Convert field name to lowercase
-                'expectedType': row.get('dataType', '').strip(),
-                'required': row.get('required', '').lower() == 'true',
-                'condition': json.loads(row.get('condition', '{}'))
-            }
-            event_validations[current_event].append(validation)
+        if not current_event:
+            continue
+
+        if current_event not in event_validations:
+            event_validations[current_event] = []
+
+        raw_key = row.get('eventPayload', '')
+        raw_expected_type = row.get('dataType', '')
+        key = raw_key.strip().lower()
+        expected_type = raw_expected_type.strip()
+        required_flag = row.get('required', '').lower() == 'true'
+        condition_raw = row.get('condition', '').strip()
+        try:
+            condition = json.loads(condition_raw) if condition_raw else {}
+        except json.JSONDecodeError:
+            condition = {}
+
+        # If both key and expected type are missing, this event expects no payload
+        if not key and not expected_type:
+            events_without_payload.add(current_event)
+            # Skip adding validation rules for presence-only events
+            continue
+
+        validation = {
+            'key': key,
+            'expectedType': expected_type,
+            'required': required_flag,
+            'condition': condition
+        }
+        event_validations[current_event].append(validation)
+
+        # Once a real validation is found, ensure the event is not marked as payload-less
+        if current_event in events_without_payload:
+            events_without_payload.remove(current_event)
     
-    return event_validations
+    return event_validations, events_without_payload
 
 def get_array_field_name(key):
     # Match pattern like "field_name[].subfield" or "items[].field_name"
@@ -404,7 +428,7 @@ def upload():
         csv_reader = csv.DictReader(csv_file.stream.read().decode('utf-8').splitlines())
         
         # Group CSV rows by eventName with case normalization
-        event_validations = parse_csv_with_case_normalization(csv_reader)
+        event_validations, events_without_payload = parse_csv_with_case_normalization(csv_reader)
         
         # No webhook/SSE logic, just proceed
         # (no-op)
@@ -457,10 +481,11 @@ def upload():
         # Validate the data
         results = []
         for event_name, validations in event_validations.items():
+            event_in_logs = event_name in event_payload_map
             payload = event_payload_map.get(event_name, {})
             
             # Check if event name is present in the logs
-            if event_name not in event_payload_map:
+            if not event_in_logs:
                 # Event name from CSV is not present in the logs
                 results.append({
                     'eventName': event_name,
@@ -472,6 +497,24 @@ def upload():
                     'comment': f'Event "{event_name}" from CSV was not found in the uploaded log file'
                 })
                 # Skip further validation for this event since it's not in the logs
+                continue
+
+            # Handle events that are expected to have no payload
+            if event_name in events_without_payload:
+                is_empty = not payload
+                status = 'Valid' if is_empty else 'Unexpected payload present'
+                comment = 'Event logged without payload as expected' if is_empty else 'Event should not contain payload data'
+                display_key = 'No Payload in the sheet' if is_empty else 'PAYLOAD'
+                display_value = 'No Payload in the sheet' if is_empty else json.dumps(payload)
+                results.append({
+                    'eventName': event_name,
+                    'key': display_key,
+                    'value': display_value,
+                    'expectedType': 'No payload expected',
+                    'receivedType': 'empty object' if is_empty else get_value_type(payload),
+                    'validationStatus': status,
+                    'comment': comment
+                })
                 continue
             
             # Check required fields first
@@ -757,7 +800,7 @@ def validate_website_logs():
         csv_reader = csv.DictReader(csv_file.stream.read().decode('utf-8').splitlines())
         
         # Group CSV rows by eventName with case normalization
-        event_validations = parse_csv_with_case_normalization(csv_reader)
+        event_validations, events_without_payload = parse_csv_with_case_normalization(csv_reader)
 
         # Parse the TXT file for website logs format
         txt_file = request.files['txt_file']
@@ -830,6 +873,28 @@ def validate_website_logs():
                     'validationStatus': 'Event name not present in the logs',
                     'comment': f'Event "{event_name}" from CSV was not found in the uploaded log file'
                 })
+                continue
+
+            # Handle events that are expected to have no payload
+            if event_name in events_without_payload:
+                for entry in log_entries:
+                    payload = entry['payload']
+                    line_number = entry['line_number']
+                    is_empty = not payload
+                    status = 'Valid' if is_empty else 'Unexpected payload present'
+                    comment = 'Event logged without payload as expected' if is_empty else 'Event should not contain payload data'
+                    display_key = 'No Payload in the sheet' if is_empty else 'PAYLOAD'
+                    display_value = 'No Payload in the sheet' if is_empty else json.dumps(payload)
+                    results.append({
+                        'eventName': event_name,
+                        'key': display_key,
+                        'value': display_value,
+                        'expectedType': 'No payload expected',
+                        'receivedType': 'empty object' if is_empty else get_value_type(payload),
+                        'validationStatus': status,
+                        'line_number': line_number,
+                        'comment': comment
+                    })
                 continue
             
             # Validate each occurrence of this event
@@ -1080,7 +1145,7 @@ def validate_website_logs_v2():
         csv_reader = csv.DictReader(csv_file.stream.read().decode('utf-8').splitlines())
         
         # Group CSV rows by eventName with case normalization
-        event_validations = parse_csv_with_case_normalization(csv_reader)
+        event_validations, events_without_payload = parse_csv_with_case_normalization(csv_reader)
 
         # Parse the TXT file for website logs v2 format
         txt_file = request.files['txt_file']
@@ -1208,6 +1273,28 @@ def validate_website_logs_v2():
                     'validationStatus': 'Event name not present in the logs',
                     'comment': f'Event "{event_name}" from CSV was not found in the uploaded log file'
                 })
+                continue
+
+            # Handle events that are expected to have no payload
+            if event_name in events_without_payload:
+                for entry in log_entries:
+                    payload = entry['payload']
+                    line_number = entry['line_number']
+                    is_empty = not payload
+                    status = 'Valid' if is_empty else 'Unexpected payload present'
+                    comment = 'Event logged without payload as expected' if is_empty else 'Event should not contain payload data'
+                    display_key = 'No Payload in the sheet' if is_empty else 'PAYLOAD'
+                    display_value = 'No Payload in the sheet' if is_empty else json.dumps(payload)
+                    results.append({
+                        'eventName': event_name,
+                        'key': display_key,
+                        'value': display_value,
+                        'expectedType': 'No payload expected',
+                        'receivedType': 'empty object' if is_empty else get_value_type(payload),
+                        'validationStatus': status,
+                        'line_number': line_number,
+                        'comment': comment
+                    })
                 continue
             
             # Validate each occurrence of this event
