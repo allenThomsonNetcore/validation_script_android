@@ -197,6 +197,7 @@ def normalize_key(key):
 def parse_csv_with_case_normalization(csv_reader):
     """Parse CSV and normalize event names and field names to lowercase"""
     event_validations = {}
+    events_without_payload = set()
     current_event = None
     
     for row in csv_reader:
@@ -204,19 +205,42 @@ def parse_csv_with_case_normalization(csv_reader):
         if event_name:
             current_event = event_name
         
-        if current_event:
-            if current_event not in event_validations:
-                event_validations[current_event] = []
-            
-            validation = {
-                'key': row.get('eventPayload', '').strip().lower(),  # Convert field name to lowercase
-                'expectedType': row.get('dataType', '').strip(),
-                'required': row.get('required', '').lower() == 'true',
-                'condition': json.loads(row.get('condition', '{}'))
-            }
-            event_validations[current_event].append(validation)
+        if not current_event:
+            continue
+
+        if current_event not in event_validations:
+            event_validations[current_event] = []
+
+        raw_key = row.get('eventPayload', '')
+        raw_expected_type = row.get('dataType', '')
+        key = raw_key.strip().lower()
+        expected_type = raw_expected_type.strip()
+        required_flag = row.get('required', '').lower() == 'true'
+        condition_raw = row.get('condition', '').strip()
+        try:
+            condition = json.loads(condition_raw) if condition_raw else {}
+        except json.JSONDecodeError:
+            condition = {}
+
+        # If both key and expected type are missing, this event expects no payload
+        if not key and not expected_type:
+            events_without_payload.add(current_event)
+            # Skip adding validation rules for presence-only events
+            continue
+
+        validation = {
+            'key': key,
+            'expectedType': expected_type,
+            'required': required_flag,
+            'condition': condition
+        }
+        event_validations[current_event].append(validation)
+
+        # Once a real validation is found, ensure the event is not marked as payload-less
+        if current_event in events_without_payload:
+            events_without_payload.remove(current_event)
     
-    return event_validations
+    return event_validations, events_without_payload
 
 def get_array_field_name(key):
     # Match pattern like "field_name[].subfield" or "items[].field_name"
@@ -363,6 +387,14 @@ def test_endpoint():
 def index():
     return render_template('index.html')
 
+# FCM Service initialization
+fcm_service = None
+stored_fcm_credentials = None  # Store credentials server-side
+
+@app.route('/push-notification')
+def push_notification():
+    return render_template('push_notification.html')
+
 @app.route('/static/<path:path>')
 def send_static(path):
     return send_from_directory('static', path)
@@ -396,7 +428,7 @@ def upload():
         csv_reader = csv.DictReader(csv_file.stream.read().decode('utf-8').splitlines())
         
         # Group CSV rows by eventName with case normalization
-        event_validations = parse_csv_with_case_normalization(csv_reader)
+        event_validations, events_without_payload = parse_csv_with_case_normalization(csv_reader)
         
         # No webhook/SSE logic, just proceed
         # (no-op)
@@ -449,10 +481,11 @@ def upload():
         # Validate the data
         results = []
         for event_name, validations in event_validations.items():
+            event_in_logs = event_name in event_payload_map
             payload = event_payload_map.get(event_name, {})
             
             # Check if event name is present in the logs
-            if event_name not in event_payload_map:
+            if not event_in_logs:
                 # Event name from CSV is not present in the logs
                 results.append({
                     'eventName': event_name,
@@ -464,6 +497,24 @@ def upload():
                     'comment': f'Event "{event_name}" from CSV was not found in the uploaded log file'
                 })
                 # Skip further validation for this event since it's not in the logs
+                continue
+
+            # Handle events that are expected to have no payload
+            if event_name in events_without_payload:
+                is_empty = not payload
+                status = 'Valid' if is_empty else 'Unexpected payload present'
+                comment = 'Event logged without payload as expected' if is_empty else 'Event should not contain payload data'
+                display_key = 'No Payload in the sheet' if is_empty else 'PAYLOAD'
+                display_value = 'No Payload in the sheet' if is_empty else json.dumps(payload)
+                results.append({
+                    'eventName': event_name,
+                    'key': display_key,
+                    'value': display_value,
+                    'expectedType': 'No payload expected',
+                    'receivedType': 'empty object' if is_empty else get_value_type(payload),
+                    'validationStatus': status,
+                    'comment': comment
+                })
                 continue
             
             # Check required fields first
@@ -749,7 +800,7 @@ def validate_website_logs():
         csv_reader = csv.DictReader(csv_file.stream.read().decode('utf-8').splitlines())
         
         # Group CSV rows by eventName with case normalization
-        event_validations = parse_csv_with_case_normalization(csv_reader)
+        event_validations, events_without_payload = parse_csv_with_case_normalization(csv_reader)
 
         # Parse the TXT file for website logs format
         txt_file = request.files['txt_file']
@@ -822,6 +873,28 @@ def validate_website_logs():
                     'validationStatus': 'Event name not present in the logs',
                     'comment': f'Event "{event_name}" from CSV was not found in the uploaded log file'
                 })
+                continue
+
+            # Handle events that are expected to have no payload
+            if event_name in events_without_payload:
+                for entry in log_entries:
+                    payload = entry['payload']
+                    line_number = entry['line_number']
+                    is_empty = not payload
+                    status = 'Valid' if is_empty else 'Unexpected payload present'
+                    comment = 'Event logged without payload as expected' if is_empty else 'Event should not contain payload data'
+                    display_key = 'No Payload in the sheet' if is_empty else 'PAYLOAD'
+                    display_value = 'No Payload in the sheet' if is_empty else json.dumps(payload)
+                    results.append({
+                        'eventName': event_name,
+                        'key': display_key,
+                        'value': display_value,
+                        'expectedType': 'No payload expected',
+                        'receivedType': 'empty object' if is_empty else get_value_type(payload),
+                        'validationStatus': status,
+                        'line_number': line_number,
+                        'comment': comment
+                    })
                 continue
             
             # Validate each occurrence of this event
@@ -1072,7 +1145,7 @@ def validate_website_logs_v2():
         csv_reader = csv.DictReader(csv_file.stream.read().decode('utf-8').splitlines())
         
         # Group CSV rows by eventName with case normalization
-        event_validations = parse_csv_with_case_normalization(csv_reader)
+        event_validations, events_without_payload = parse_csv_with_case_normalization(csv_reader)
 
         # Parse the TXT file for website logs v2 format
         txt_file = request.files['txt_file']
@@ -1200,6 +1273,28 @@ def validate_website_logs_v2():
                     'validationStatus': 'Event name not present in the logs',
                     'comment': f'Event "{event_name}" from CSV was not found in the uploaded log file'
                 })
+                continue
+
+            # Handle events that are expected to have no payload
+            if event_name in events_without_payload:
+                for entry in log_entries:
+                    payload = entry['payload']
+                    line_number = entry['line_number']
+                    is_empty = not payload
+                    status = 'Valid' if is_empty else 'Unexpected payload present'
+                    comment = 'Event logged without payload as expected' if is_empty else 'Event should not contain payload data'
+                    display_key = 'No Payload in the sheet' if is_empty else 'PAYLOAD'
+                    display_value = 'No Payload in the sheet' if is_empty else json.dumps(payload)
+                    results.append({
+                        'eventName': event_name,
+                        'key': display_key,
+                        'value': display_value,
+                        'expectedType': 'No payload expected',
+                        'receivedType': 'empty object' if is_empty else get_value_type(payload),
+                        'validationStatus': status,
+                        'line_number': line_number,
+                        'comment': comment
+                    })
                 continue
             
             # Validate each occurrence of this event
@@ -1605,6 +1700,171 @@ def download_valid_events():
     except Exception as e:
         app.logger.error(f'Error in download valid events endpoint: {str(e)}')
         return jsonify({'error': str(e)}), 500
+
+# ==================== FCM Push Notification Endpoints ====================
+
+# Global FCM Service instance
+fcm_service = None
+
+@app.route('/validate-fcm-credentials', methods=['POST', 'OPTIONS'])
+def validate_fcm_credentials():
+    """Validate and store FCM credentials server-side"""
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    global fcm_service, stored_fcm_credentials
+    
+    try:
+        data = request.get_json()
+        credentials_json = data.get('credentials', '')
+        
+        if not credentials_json:
+            return jsonify({"valid": False, "message": "No credentials provided"}), 400
+        
+        # Parse to validate it's valid JSON
+        try:
+            creds_obj = json.loads(credentials_json)
+            if not creds_obj.get('private_key'):
+                return jsonify({"valid": False, "message": "Invalid Firebase credentials format"}), 400
+        except json.JSONDecodeError:
+            return jsonify({"valid": False, "message": "Credentials must be valid JSON"}), 400
+        
+        # Save credentials to temporary file for validation
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            f.write(credentials_json)
+            temp_creds_path = f.name
+        
+        # Initialize FCM service to validate
+        from fcm_service import FCMService
+        if fcm_service is None:
+            fcm_service = FCMService()
+        
+        success, message = fcm_service.initialize(temp_creds_path)
+        
+        if success:
+            # Clean up temp file
+            try:
+                os.remove(temp_creds_path)
+            except:
+                pass
+            
+            # Store credentials server-side for later use
+            stored_fcm_credentials = credentials_json
+            
+            app.logger.info("FCM credentials validated and stored server-side")
+            return jsonify({"valid": True, "message": "Credentials validated and stored"}), 200
+        else:
+            try:
+                os.remove(temp_creds_path)
+            except:
+                pass
+            return jsonify({"valid": False, "message": message}), 400
+            
+    except Exception as e:
+        app.logger.error(f'Error validating FCM credentials: {str(e)}')
+        return jsonify({"valid": False, "message": str(e)}), 500
+
+@app.route('/send-push-notification', methods=['POST', 'OPTIONS'])
+def send_push_notification():
+    """Send push notification via FCM using stored credentials"""
+    if request.method == 'OPTIONS':
+        return '', 200
+    
+    global fcm_service, stored_fcm_credentials
+    
+    try:
+        data = request.get_json()
+        
+        template_type = data.get('template_type')
+        fcm_token = data.get('fcm_token')
+        deeplink = data.get('deeplink', '')
+        image_link = data.get('image_link', '')
+        custom_payload_str = data.get('custom_payload', '')
+        
+        # Validate input
+        if not template_type or not fcm_token:
+            return jsonify({"success": False, "error": "Missing required fields"}), 400
+        
+        # Use stored credentials
+        if not stored_fcm_credentials:
+            return jsonify({"success": False, "error": "Firebase credentials not loaded. Please upload credentials file first."}), 400
+        
+        # Parse custom payload if provided
+        custom_payload = {}
+        if custom_payload_str:
+            try:
+                custom_payload = json.loads(custom_payload_str)
+            except json.JSONDecodeError:
+                return jsonify({"success": False, "error": "Invalid JSON in custom payload"}), 400
+        
+        # Initialize or reinitialize FCM service with stored credentials
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+            f.write(stored_fcm_credentials)
+            temp_creds_path = f.name
+        
+        # Initialize FCM service
+        from fcm_service import FCMService
+        fcm_service = FCMService()
+        
+        success, message = fcm_service.initialize(temp_creds_path)
+        if not success:
+            return jsonify({"success": False, "error": f"Failed to initialize FCM: {message}"}), 400
+        
+        # Import template factory
+        from fcm_service import FCMTemplateFactory
+        
+        # Create payload based on template type
+        if template_type == 'rating':
+            payload = FCMTemplateFactory.create_rating_template(deeplink, custom_payload, image_link)
+        elif template_type == 'simple':
+            title = data.get('title', 'Simple Notification')
+            message = data.get('message', '')
+            payload = FCMTemplateFactory.create_simple_template(title, message, deeplink, custom_payload, image_link)
+        else:
+            return jsonify({"success": False, "error": "Unknown template type"}), 400
+        
+        # Send notification
+        success, result = fcm_service.send_notification(fcm_token, payload, template_type)
+        
+        if success:
+            log_validation_event('push_notification_sent', {
+                'template': template_type,
+                'device': fcm_token[:20] + '...',
+                'message_id': result,
+                'timestamp': datetime.now().isoformat()
+            })
+            
+            return jsonify({
+                "success": True,
+                "message_id": result,
+                "template_type": template_type,
+                "device_token": fcm_token,
+                "status": "Sent Successfully",
+                "status_color": "bg-success",
+                "timestamp": datetime.now().isoformat(),
+                "message": "Push notification sent successfully"
+            }), 200
+        else:
+            log_validation_event('push_notification_failed', {
+                'template': template_type,
+                'device': fcm_token[:20] + '...',
+                'error': result,
+                'timestamp': datetime.now().isoformat()
+            })
+            
+            return jsonify({
+                "success": False,
+                "status": "Failed",
+                "status_color": "bg-danger",
+                "timestamp": datetime.now().isoformat(),
+                "error": result
+            }), 400
+            
+    except Exception as e:
+        app.logger.error(f'Error sending push notification: {str(e)}')
+        return jsonify({"success": False, "error": str(e)}), 500
 
 if __name__ == '__main__':
     import os
