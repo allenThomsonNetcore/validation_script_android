@@ -150,9 +150,9 @@ def validate_date(value, event_name):
 def validate_integer(value):
     return isinstance(value, int)
 
-def validate_float(value):
+def validate_float(value, accept_int_as_float=False):
     """Validate float values, handling JSON serialization quirks"""
-    if ACCEPT_INT_AS_FLOAT:
+    if accept_int_as_float or ACCEPT_INT_AS_FLOAT:
         # Accept both float and int for float validation
         # This handles cases where JSON serialization converts 3.00 to 3 (int)
         # but 3.10 stays as 3.1 (float)
@@ -173,7 +173,7 @@ def get_formatted_value(value, expected_type):
         return str_val
     return value
 
-def validate_value(value, expected_type, event_name=None):
+def validate_value(value, expected_type, event_name=None, accept_int_as_float=False):
     if value is None or value == "" or value == "":
         return "Null value"
     if expected_type == "text":
@@ -183,9 +183,9 @@ def validate_value(value, expected_type, event_name=None):
     elif expected_type == "integer":
         return validate_integer(value)
     elif expected_type == "float":
-        result = validate_float(value)
+        result = validate_float(value, accept_int_as_float)
         # Add special handling for int values that might have been floats
-        if result and isinstance(value, int) and ACCEPT_INT_AS_FLOAT:
+        if result and isinstance(value, int) and (accept_int_as_float or ACCEPT_INT_AS_FLOAT):
             return "Valid (JSON serialization converted float to integer)"
         return result
     return False
@@ -249,7 +249,7 @@ def get_array_field_name(key):
         return match.group(1), match.group(2)
     return None, None
 
-def validate_array_of_objects(array_payload, validations, event_name, results):
+def validate_array_of_objects(array_payload, validations, event_name, results, accept_int_as_float=False):
     # Extract validation rules for array items
     array_validations = {}
     regular_validations = []
@@ -305,7 +305,7 @@ def validate_array_of_objects(array_payload, validations, event_name, results):
                 original_key = validation_info['originalKey']
                 value = obj.get(field_name)
 
-                validation_result = validate_value(value, expected_type, event_name)
+                validation_result = validate_value(value, expected_type, event_name, accept_int_as_float=accept_int_as_float)
                 status = 'Valid' if validation_result and validation_result != "Null value" else \
                         'Payload value is Empty' if validation_result == "Null value" else \
                         'Invalid/Wrong datatype/value'
@@ -337,7 +337,7 @@ def validate_array_of_objects(array_payload, validations, event_name, results):
 
     return regular_validations
 
-def validate_conditional_fields(payload: Dict, validation: Dict) -> Tuple[bool, str]:
+def validate_conditional_fields(payload: Dict, validation: Dict, accept_int_as_float=False) -> Tuple[bool, str]:
     """Validate fields based on conditional rules"""
     if 'condition' not in validation:
         return True, ""
@@ -351,7 +351,7 @@ def validate_conditional_fields(payload: Dict, validation: Dict) -> Tuple[bool, 
     if if_field in payload and payload[if_field] == if_value:
         if then_field not in payload:
             return False, f"Required field '{then_field}' is missing when '{if_field}' is '{if_value}'"
-        if not validate_value(payload[then_field], then_type):
+        if not validate_value(payload[then_field], then_type, accept_int_as_float=accept_int_as_float):
             return False, f"Field '{then_field}' has invalid type when '{if_field}' is '{if_value}'"
     
     return True, ""
@@ -409,6 +409,9 @@ def upload():
         return jsonify({"error": "CSV file is required"}), 400
     if 'txt_file' not in request.files and 'manual_log' not in request.form:
         return jsonify({"error": "TXT file or manual log input is required"}), 400
+
+    # Get flexible float validation setting
+    flexible_float_validation = request.form.get('flexible_float_validation') == 'true'
 
     try:
         # Log file upload
@@ -523,7 +526,7 @@ def upload():
 
             # Check conditional validations
             for validation in validations:
-                is_valid, error_msg = validate_conditional_fields(payload, validation)
+                is_valid, error_msg = validate_conditional_fields(payload, validation, accept_int_as_float=flexible_float_validation)
                 if not is_valid:
                     results.append({
                         'eventName': event_name,
@@ -537,7 +540,7 @@ def upload():
             # Check for array fields in the payload
             array_fields = {k: v for k, v in payload.items() if isinstance(v, list)}
             if array_fields:
-                regular_validations = validate_array_of_objects(payload, validations, event_name, results)
+                regular_validations = validate_array_of_objects(payload, validations, event_name, results, accept_int_as_float=flexible_float_validation)
                 
                 # Validate regular fields (non-array fields)
                 normalized_payload = {normalize_key(k): v for k, v in payload.items() if k not in array_fields}
@@ -581,7 +584,7 @@ def upload():
                             'validationStatus': 'Payload not present in the log'
                         })
                     else:
-                        validation_result = validate_value(value, expected_type, event_name)
+                        validation_result = validate_value(value, expected_type, event_name, accept_int_as_float=flexible_float_validation)
                         status = 'Valid' if validation_result and validation_result != "Null value" else \
                                 'Payload value is Empty' if validation_result == "Null value" else \
                                 'Invalid/Wrong datatype/value'
@@ -637,7 +640,7 @@ def upload():
                             'validationStatus': 'Payload not present in the log'
                         })
                     else:
-                        validation_result = validate_value(value, expected_type, event_name)
+                        validation_result = validate_value(value, expected_type, event_name, accept_int_as_float=flexible_float_validation)
                         status = 'Valid' if validation_result and validation_result != "Null value" else \
                                 'Payload value is Empty' if validation_result == "Null value" else \
                                 'Invalid/Wrong datatype/value'
@@ -910,7 +913,7 @@ def validate_website_logs():
 
                 # Check conditional validations
                 for validation in validations:
-                    is_valid, error_msg = validate_conditional_fields(payload, validation)
+                    is_valid, error_msg = validate_conditional_fields(payload, validation, accept_int_as_float=flexible_float_validation)
                     if not is_valid:
                         results.append({
                             'eventName': event_name,
@@ -925,7 +928,7 @@ def validate_website_logs():
                 # Check for array fields in the payload
                 array_fields = {k: v for k, v in payload.items() if isinstance(v, list)}
                 if array_fields:
-                    regular_validations = validate_array_of_objects(payload, validations, event_name, results)
+                    regular_validations = validate_array_of_objects(payload, validations, event_name, results, accept_int_as_float=flexible_float_validation)
                     
                     # Validate regular fields (non-array fields)
                     normalized_payload = {normalize_key(k): v for k, v in payload.items() if k not in array_fields}
@@ -972,7 +975,7 @@ def validate_website_logs():
                                 'line_number': line_number
                             })
                         else:
-                            validation_result = validate_value(value, expected_type, event_name)
+                            validation_result = validate_value(value, expected_type, event_name, accept_int_as_float=flexible_float_validation)
                             status = 'Valid' if validation_result and validation_result != "Null value" else \
                                     'Payload value is Empty' if validation_result == "Null value" else \
                                     'Invalid/Wrong datatype/value'
@@ -1032,7 +1035,7 @@ def validate_website_logs():
                                 'line_number': line_number
                             })
                         else:
-                            validation_result = validate_value(value, expected_type, event_name)
+                            validation_result = validate_value(value, expected_type, event_name, accept_int_as_float=flexible_float_validation)
                             status = 'Valid' if validation_result and validation_result != "Null value" else \
                                     'Payload value is Empty' if validation_result == "Null value" else \
                                     'Invalid/Wrong datatype/value'
@@ -1130,6 +1133,9 @@ def validate_website_logs_v2():
         
     if 'csv_file' not in request.files or 'txt_file' not in request.files:
         return jsonify({"error": "Both CSV and TXT files are required"}), 400
+
+    # Get flexible float validation setting
+    flexible_float_validation = request.form.get('flexible_float_validation') == 'true'
 
     try:
         # Log file upload
@@ -1310,7 +1316,7 @@ def validate_website_logs_v2():
 
                 # Check conditional validations
                 for validation in validations:
-                    is_valid, error_msg = validate_conditional_fields(payload, validation)
+                    is_valid, error_msg = validate_conditional_fields(payload, validation, accept_int_as_float=flexible_float_validation)
                     if not is_valid:
                         results.append({
                             'eventName': event_name,
@@ -1325,7 +1331,7 @@ def validate_website_logs_v2():
                 # Check for array fields in the payload
                 array_fields = {k: v for k, v in payload.items() if isinstance(v, list)}
                 if array_fields:
-                    regular_validations = validate_array_of_objects(payload, validations, event_name, results)
+                    regular_validations = validate_array_of_objects(payload, validations, event_name, results, accept_int_as_float=flexible_float_validation)
                     
                     # Validate regular fields (non-array fields)
                     normalized_payload = {normalize_key(k): v for k, v in payload.items() if k not in array_fields}
@@ -1372,7 +1378,7 @@ def validate_website_logs_v2():
                                 'line_number': line_number
                             })
                         else:
-                            validation_result = validate_value(value, expected_type, event_name)
+                            validation_result = validate_value(value, expected_type, event_name, accept_int_as_float=flexible_float_validation)
                             status = 'Valid' if validation_result and validation_result != "Null value" else \
                                     'Payload value is Empty' if validation_result == "Null value" else \
                                     'Invalid/Wrong datatype/value'
@@ -1432,7 +1438,7 @@ def validate_website_logs_v2():
                                 'line_number': line_number
                             })
                         else:
-                            validation_result = validate_value(value, expected_type, event_name)
+                            validation_result = validate_value(value, expected_type, event_name, accept_int_as_float=flexible_float_validation)
                             status = 'Valid' if validation_result and validation_result != "Null value" else \
                                     'Payload value is Empty' if validation_result == "Null value" else \
                                     'Invalid/Wrong datatype/value'

@@ -223,7 +223,13 @@
                             Website Logs V2 Validation (JSON lines format with event key and system fields excluded)
                         </label>
                     </div>
-                    <!-- Webhook mode removed -->
+                    
+                    <div class="form-check form-switch mt-3">
+                        <input class="form-check-input" type="checkbox" id="flexibleFloatValidation" name="flexibleFloatValidation">
+                        <label class="form-check-label" for="flexibleFloatValidation">
+                            Flexible Float Validation (Accept integers as valid floats)
+                        </label>
+                    </div>
                 </div>
                 
                 <form id="uploadForm" enctype="multipart/form-data">
@@ -521,6 +527,11 @@
             e.preventDefault();
             const formData = new FormData();
             const validationMode = $('input[name="validationMode"]:checked').val();
+            
+            // Get flexible float validation setting
+            const flexibleFloatValidation = $('#flexibleFloatValidation').is(':checked');
+            formData.append('flexible_float_validation', flexibleFloatValidation);
+
             let endpoint = '/upload';
             if (validationMode === 'website') {
                 endpoint = '/validate-website-logs';
