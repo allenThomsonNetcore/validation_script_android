@@ -3,6 +3,7 @@ from flask_cors import CORS
 import csv
 import json
 import re
+import difflib
 import io
 import logging
 import os
@@ -16,6 +17,8 @@ from collections import defaultdict
 # Configuration for float validation
 # Set to True to accept integers as valid float values (handles JSON serialization quirks)
 ACCEPT_INT_AS_FLOAT = False
+# Fuzzy matching threshold (0-1). Higher is stricter.
+FUZZY_MATCH_THRESHOLD = 0.82
 
 # Configure logging
 logging.basicConfig(
@@ -194,6 +197,43 @@ def normalize_key(key):
     """Normalize key by converting to lowercase and replacing spaces with underscores"""
     return key.replace(" ", "_").lower() if key else None
 
+def normalize_fuzzy_text(value):
+    """Normalize strings for fuzzy matching (remove non-alphanumerics)."""
+    if value is None:
+        return ""
+    if not isinstance(value, str):
+        value = str(value)
+    return re.sub(r"[^a-z0-9]+", "", value.strip().lower())
+
+def fuzzy_best_match(target, candidates, threshold=FUZZY_MATCH_THRESHOLD):
+    """Return best fuzzy match from candidates with similarity score."""
+    norm_target = normalize_fuzzy_text(target)
+    if not norm_target:
+        return None, 0.0
+    best_match = None
+    best_score = 0.0
+    for cand in candidates:
+        norm_cand = normalize_fuzzy_text(cand)
+        if not norm_cand:
+            continue
+        score = difflib.SequenceMatcher(None, norm_target, norm_cand).ratio()
+        if score > best_score:
+            best_score = score
+            best_match = cand
+    if best_match is not None and best_score >= threshold:
+        return best_match, best_score
+    return None, best_score
+
+def build_fuzzy_suggestion(target, candidates, use_fuzzy, hint):
+    if not use_fuzzy:
+        return ""
+    if not candidates:
+        return ""
+    suggestion, _ = fuzzy_best_match(target, candidates)
+    if suggestion:
+        return f"{hint}: {suggestion}"
+    return ""
+
 def parse_csv_with_case_normalization(csv_reader):
     """Parse CSV and normalize event names and field names to lowercase"""
     event_validations = {}
@@ -249,7 +289,7 @@ def get_array_field_name(key):
         return match.group(1), match.group(2)
     return None, None
 
-def validate_array_of_objects(array_payload, validations, event_name, results, accept_int_as_float=False):
+def validate_array_of_objects(array_payload, validations, event_name, results, accept_int_as_float=False, use_fuzzy_matching=False):
     # Extract validation rules for array items
     array_validations = {}
     regular_validations = []
@@ -305,6 +345,24 @@ def validate_array_of_objects(array_payload, validations, event_name, results, a
                 original_key = validation_info['originalKey']
                 value = obj.get(field_name)
 
+                if field_name not in obj:
+                    fuzzy_suggestion = build_fuzzy_suggestion(
+                        field_name,
+                        list(obj.keys()),
+                        use_fuzzy_matching,
+                        'Possible match in logs'
+                    )
+                    results.append({
+                        'eventName': event_name,
+                        'key': f"{array_field}[{index}].{field_name}",
+                        'value': None,
+                        'expectedType': expected_type,
+                        'receivedType': 'not present',
+                        'validationStatus': 'Payload not present in the log',
+                        'fuzzySuggestion': fuzzy_suggestion
+                    })
+                    continue
+
                 validation_result = validate_value(value, expected_type, event_name, accept_int_as_float=accept_int_as_float)
                 status = 'Valid' if validation_result and validation_result != "Null value" else \
                         'Payload value is Empty' if validation_result == "Null value" else \
@@ -322,9 +380,16 @@ def validate_array_of_objects(array_payload, validations, event_name, results, a
                 })
 
             # Check for unexpected fields in this object
+            expected_field_names = list(field_validations.keys())
             for key in obj.keys():
                 normalized_key = normalize_key(key)
                 if normalized_key not in field_validations:
+                    fuzzy_suggestion = build_fuzzy_suggestion(
+                        key,
+                        expected_field_names,
+                        use_fuzzy_matching,
+                        'Possible match in sheet'
+                    )
                     value = obj[key]
                     results.append({
                         'eventName': event_name,
@@ -332,7 +397,8 @@ def validate_array_of_objects(array_payload, validations, event_name, results, a
                         'value': value,
                         'expectedType': None,
                         'receivedType': get_value_type(value),
-                        'validationStatus': 'Unexpected key in array object'
+                        'validationStatus': 'Unexpected key in array object',
+                        'fuzzySuggestion': fuzzy_suggestion
                     })
 
     return regular_validations
@@ -412,6 +478,8 @@ def upload():
 
     # Get flexible float validation setting
     flexible_float_validation = request.form.get('flexible_float_validation') == 'true'
+    use_fuzzy_matching = request.form.get('fuzzy_matching') == 'true'
+    use_fuzzy_matching = request.form.get('fuzzy_matching') == 'true'
 
     try:
         # Log file upload
@@ -487,6 +555,7 @@ def upload():
         event_payload_map = {
             log.get("eventName"): log.get("payload", {}) for log in parsed_logs
         }
+        log_events = set(event_payload_map.keys())
         
         # Validate the data
         results = []
@@ -497,6 +566,12 @@ def upload():
             # Check if event name is present in the logs
             if not event_in_logs:
                 # Event name from CSV is not present in the logs
+                fuzzy_suggestion = build_fuzzy_suggestion(
+                    event_name,
+                    log_events,
+                    use_fuzzy_matching,
+                    'Possible match in logs'
+                )
                 results.append({
                     'eventName': event_name,
                     'key': 'EVENT_NAME',
@@ -504,7 +579,8 @@ def upload():
                     'expectedType': 'event',
                     'receivedType': 'not present in logs',
                     'validationStatus': 'Event name not present in the logs',
-                    'comment': f'Event "{event_name}" from CSV was not found in the uploaded log file'
+                    'comment': f'Event "{event_name}" from CSV was not found in the uploaded log file',
+                    'fuzzySuggestion': fuzzy_suggestion
                 })
                 # Skip further validation for this event since it's not in the logs
                 continue
@@ -547,22 +623,39 @@ def upload():
             # Check for array fields in the payload
             array_fields = {k: v for k, v in payload.items() if isinstance(v, list)}
             if array_fields:
-                regular_validations = validate_array_of_objects(payload, validations, event_name, results, accept_int_as_float=flexible_float_validation)
+                regular_validations = validate_array_of_objects(
+                    payload,
+                    validations,
+                    event_name,
+                    results,
+                    accept_int_as_float=flexible_float_validation,
+                    use_fuzzy_matching=use_fuzzy_matching
+                )
                 
                 # Validate regular fields (non-array fields)
                 normalized_payload = {normalize_key(k): v for k, v in payload.items() if k not in array_fields}
+                payload_key_map = {normalize_key(k): k for k in payload.keys()}
+                expected_keys = [v['key'] for v in regular_validations]
                 
                 # Check for extra keys in regular fields
                 extra_keys = set(normalized_payload.keys()) - set([normalize_key(v['key']) for v in regular_validations])
                 for extra_key in extra_keys:
                     value = normalized_payload.get(extra_key)
+                    original_key = payload_key_map.get(extra_key, extra_key)
+                    fuzzy_suggestion = build_fuzzy_suggestion(
+                        original_key,
+                        expected_keys,
+                        use_fuzzy_matching,
+                        'Possible match in sheet'
+                    )
                     results.append({
                         'eventName': event_name,
                         'key': extra_key,
                         'value': value,
                         'expectedType': 'EXTRA',
                         'receivedType': get_value_type(value),
-                        'validationStatus': 'Extra key present in the log'
+                        'validationStatus': 'Extra key present in the log',
+                        'fuzzySuggestion': fuzzy_suggestion
                     })
 
                 # Validate regular fields
@@ -582,13 +675,20 @@ def upload():
                             'validationStatus': 'Invalid CSV row'
                         })
                     elif normalized_key not in normalized_payload:
+                        fuzzy_suggestion = build_fuzzy_suggestion(
+                            key,
+                            list(payload.keys()),
+                            use_fuzzy_matching,
+                            'Possible match in logs'
+                        )
                         results.append({
                             'eventName': event_name,
                             'key': key,
                             'value': None,
                             'expectedType': expected_type,
                             'receivedType': 'not present',
-                            'validationStatus': 'Payload not present in the log'
+                            'validationStatus': 'Payload not present in the log',
+                            'fuzzySuggestion': fuzzy_suggestion
                         })
                     else:
                         validation_result = validate_value(value, expected_type, event_name, accept_int_as_float=flexible_float_validation)
@@ -607,16 +707,26 @@ def upload():
             else:
                 # Regular validation for non-array payloads
                 normalized_payload = {normalize_key(k): v for k, v in payload.items()}
+                payload_key_map = {normalize_key(k): k for k in payload.keys()}
+                expected_keys = [v['key'] for v in validations]
                 extra_keys = set(normalized_payload.keys()) - set([normalize_key(v['key']) for v in validations])
                 for extra_key in extra_keys:
                     value = normalized_payload.get(extra_key)
+                    original_key = payload_key_map.get(extra_key, extra_key)
+                    fuzzy_suggestion = build_fuzzy_suggestion(
+                        original_key,
+                        expected_keys,
+                        use_fuzzy_matching,
+                        'Possible match in sheet'
+                    )
                     results.append({
                         'eventName': event_name,
                         'key': extra_key,
                         'value': value,
                         'expectedType': 'EXTRA',
                         'receivedType': get_value_type(value),
-                        'validationStatus': 'Extra key present in the log'
+                        'validationStatus': 'Extra key present in the log',
+                        'fuzzySuggestion': fuzzy_suggestion
                     })
 
                 for validation in validations:
@@ -638,13 +748,20 @@ def upload():
                     value = normalized_payload.get(normalized_key)
 
                     if normalized_key not in normalized_payload:
+                        fuzzy_suggestion = build_fuzzy_suggestion(
+                            key,
+                            list(payload.keys()),
+                            use_fuzzy_matching,
+                            'Possible match in logs'
+                        )
                         results.append({
                             'eventName': event_name,
                             'key': key,
                             'value': None,
                             'expectedType': expected_type,
                             'receivedType': 'not present',
-                            'validationStatus': 'Payload not present in the log'
+                            'validationStatus': 'Payload not present in the log',
+                            'fuzzySuggestion': fuzzy_suggestion
                         })
                     else:
                         validation_result = validate_value(value, expected_type, event_name, accept_int_as_float=flexible_float_validation)
@@ -669,6 +786,12 @@ def upload():
         extra_events = log_events - csv_events
         for extra_event in extra_events:
             payload = event_payload_map.get(extra_event, {})
+            fuzzy_suggestion = build_fuzzy_suggestion(
+                extra_event,
+                csv_events,
+                use_fuzzy_matching,
+                'Possible match in sheet'
+            )
             results.append({
                 'eventName': extra_event,
                 'key': 'EVENT_NAME',
@@ -676,7 +799,8 @@ def upload():
                 'expectedType': 'event',
                 'receivedType': 'extra event in logs',
                 'validationStatus': 'Extra event present in logs',
-                'comment': f'Event "{extra_event}" found in logs but not defined in CSV validation rules'
+                'comment': f'Event "{extra_event}" found in logs but not defined in CSV validation rules',
+                'fuzzySuggestion': fuzzy_suggestion
             })
             
             # Also add entries for all fields in the extra event's payload
@@ -761,6 +885,22 @@ def filter_results():
                             r for r in filtered_results 
                             if any(search_term in str(v).lower() for v in r.values())
                         ]
+                    elif field == 'fuzzySuggestion':
+                        normalized = [str(v).strip().lower() for v in values]
+                        wants_exists = any(v.startswith('exist') for v in normalized)
+                        wants_not = any('not' in v for v in normalized)
+                        if wants_exists and wants_not:
+                            continue
+                        if wants_exists:
+                            filtered_results = [
+                                r for r in filtered_results
+                                if str(r.get('fuzzySuggestion', '')).strip() != ''
+                            ]
+                        elif wants_not:
+                            filtered_results = [
+                                r for r in filtered_results
+                                if str(r.get('fuzzySuggestion', '')).strip() == ''
+                            ]
                     else:
                         filtered_results = [
                             r for r in filtered_results 
@@ -800,6 +940,8 @@ def validate_website_logs():
         return jsonify({"error": "Both CSV and TXT files are required"}), 400
 
     try:
+        flexible_float_validation = request.form.get('flexible_float_validation') == 'true'
+        use_fuzzy_matching = request.form.get('fuzzy_matching') == 'true'
         # Log file upload
         log_validation_event('website_logs_upload', {
             'csv_file': request.files['csv_file'].filename,
@@ -875,6 +1017,7 @@ def validate_website_logs():
                 'line_number': log['line_number'],
                 'full_log': log['full_log']
             })
+        log_events = set(event_payload_map.keys())
 
         # Validate the data
         results = []
@@ -884,6 +1027,12 @@ def validate_website_logs():
             # Check if event name is present in the logs
             if not log_entries:
                 # Event name from CSV is not present in the logs
+                fuzzy_suggestion = build_fuzzy_suggestion(
+                    event_name,
+                    log_events,
+                    use_fuzzy_matching,
+                    'Possible match in logs'
+                )
                 results.append({
                     'eventName': event_name,
                     'key': 'EVENT_NAME',
@@ -891,7 +1040,8 @@ def validate_website_logs():
                     'expectedType': 'event',
                     'receivedType': 'not present in logs',
                     'validationStatus': 'Event name not present in the logs',
-                    'comment': f'Event "{event_name}" from CSV was not found in the uploaded log file'
+                    'comment': f'Event "{event_name}" from CSV was not found in the uploaded log file',
+                    'fuzzySuggestion': fuzzy_suggestion
                 })
                 continue
 
@@ -945,15 +1095,31 @@ def validate_website_logs():
                 # Check for array fields in the payload
                 array_fields = {k: v for k, v in payload.items() if isinstance(v, list)}
                 if array_fields:
-                    regular_validations = validate_array_of_objects(payload, validations, event_name, results, accept_int_as_float=flexible_float_validation)
+                    regular_validations = validate_array_of_objects(
+                        payload,
+                        validations,
+                        event_name,
+                        results,
+                        accept_int_as_float=flexible_float_validation,
+                        use_fuzzy_matching=use_fuzzy_matching
+                    )
                     
                     # Validate regular fields (non-array fields)
                     normalized_payload = {normalize_key(k): v for k, v in payload.items() if k not in array_fields}
+                    payload_key_map = {normalize_key(k): k for k in payload.keys()}
+                    expected_keys = [v['key'] for v in regular_validations]
                     
                     # Check for extra keys in regular fields
                     extra_keys = set(normalized_payload.keys()) - set([normalize_key(v['key']) for v in regular_validations])
                     for extra_key in extra_keys:
                         value = normalized_payload.get(extra_key)
+                        original_key = payload_key_map.get(extra_key, extra_key)
+                        fuzzy_suggestion = build_fuzzy_suggestion(
+                            original_key,
+                            expected_keys,
+                            use_fuzzy_matching,
+                            'Possible match in sheet'
+                        )
                         results.append({
                             'eventName': event_name,
                             'key': extra_key,
@@ -961,6 +1127,7 @@ def validate_website_logs():
                             'expectedType': 'EXTRA',
                             'receivedType': get_value_type(value),
                             'validationStatus': 'Extra key present in the log',
+                            'fuzzySuggestion': fuzzy_suggestion,
                             'line_number': line_number
                         })
 
@@ -982,6 +1149,12 @@ def validate_website_logs():
                                 'line_number': line_number
                             })
                         elif normalized_key not in normalized_payload:
+                            fuzzy_suggestion = build_fuzzy_suggestion(
+                                key,
+                                list(payload.keys()),
+                                use_fuzzy_matching,
+                                'Possible match in logs'
+                            )
                             results.append({
                                 'eventName': event_name,
                                 'key': key,
@@ -989,6 +1162,7 @@ def validate_website_logs():
                                 'expectedType': expected_type,
                                 'receivedType': 'not present',
                                 'validationStatus': 'Payload not present in the log',
+                                'fuzzySuggestion': fuzzy_suggestion,
                                 'line_number': line_number
                             })
                         else:
@@ -1009,9 +1183,18 @@ def validate_website_logs():
                 else:
                     # Regular validation for non-array payloads
                     normalized_payload = {normalize_key(k): v for k, v in payload.items()}
+                    payload_key_map = {normalize_key(k): k for k in payload.keys()}
+                    expected_keys = [v['key'] for v in validations]
                     extra_keys = set(normalized_payload.keys()) - set([normalize_key(v['key']) for v in validations])
                     for extra_key in extra_keys:
                         value = normalized_payload.get(extra_key)
+                        original_key = payload_key_map.get(extra_key, extra_key)
+                        fuzzy_suggestion = build_fuzzy_suggestion(
+                            original_key,
+                            expected_keys,
+                            use_fuzzy_matching,
+                            'Possible match in sheet'
+                        )
                         results.append({
                             'eventName': event_name,
                             'key': extra_key,
@@ -1019,6 +1202,7 @@ def validate_website_logs():
                             'expectedType': 'EXTRA',
                             'receivedType': get_value_type(value),
                             'validationStatus': 'Extra key present in the log',
+                            'fuzzySuggestion': fuzzy_suggestion,
                             'line_number': line_number
                         })
 
@@ -1042,6 +1226,12 @@ def validate_website_logs():
                         value = normalized_payload.get(normalized_key)
 
                         if normalized_key not in normalized_payload:
+                            fuzzy_suggestion = build_fuzzy_suggestion(
+                                key,
+                                list(payload.keys()),
+                                use_fuzzy_matching,
+                                'Possible match in logs'
+                            )
                             results.append({
                                 'eventName': event_name,
                                 'key': key,
@@ -1049,6 +1239,7 @@ def validate_website_logs():
                                 'expectedType': expected_type,
                                 'receivedType': 'not present',
                                 'validationStatus': 'Payload not present in the log',
+                                'fuzzySuggestion': fuzzy_suggestion,
                                 'line_number': line_number
                             })
                         else:
@@ -1078,7 +1269,12 @@ def validate_website_logs():
             for entry in log_entries:
                 payload = entry['payload']
                 line_number = entry['line_number']
-                
+                fuzzy_suggestion = build_fuzzy_suggestion(
+                    extra_event,
+                    csv_events,
+                    use_fuzzy_matching,
+                    'Possible match in sheet'
+                )
                 results.append({
                     'eventName': extra_event,
                     'key': 'EVENT_NAME',
@@ -1087,6 +1283,7 @@ def validate_website_logs():
                     'receivedType': 'extra event in logs',
                     'validationStatus': 'Extra event present in logs',
                     'comment': f'Event "{extra_event}" found in logs but not defined in CSV validation rules',
+                    'fuzzySuggestion': fuzzy_suggestion,
                     'line_number': line_number
                 })
                 
@@ -1297,6 +1494,12 @@ def validate_website_logs_v2():
             # Check if event name is present in the logs
             if not log_entries:
                 # Event name from CSV is not present in the logs
+                fuzzy_suggestion = build_fuzzy_suggestion(
+                    event_name,
+                    log_events,
+                    use_fuzzy_matching,
+                    'Possible match in logs'
+                )
                 results.append({
                     'eventName': event_name,
                     'key': 'EVENT_NAME',
@@ -1304,7 +1507,8 @@ def validate_website_logs_v2():
                     'expectedType': 'event',
                     'receivedType': 'not present in logs',
                     'validationStatus': 'Event name not present in the logs',
-                    'comment': f'Event "{event_name}" from CSV was not found in the uploaded log file'
+                    'comment': f'Event "{event_name}" from CSV was not found in the uploaded log file',
+                    'fuzzySuggestion': fuzzy_suggestion
                 })
                 continue
 
@@ -1358,15 +1562,31 @@ def validate_website_logs_v2():
                 # Check for array fields in the payload
                 array_fields = {k: v for k, v in payload.items() if isinstance(v, list)}
                 if array_fields:
-                    regular_validations = validate_array_of_objects(payload, validations, event_name, results, accept_int_as_float=flexible_float_validation)
+                    regular_validations = validate_array_of_objects(
+                        payload,
+                        validations,
+                        event_name,
+                        results,
+                        accept_int_as_float=flexible_float_validation,
+                        use_fuzzy_matching=use_fuzzy_matching
+                    )
                     
                     # Validate regular fields (non-array fields)
                     normalized_payload = {normalize_key(k): v for k, v in payload.items() if k not in array_fields}
+                    payload_key_map = {normalize_key(k): k for k in payload.keys()}
+                    expected_keys = [v['key'] for v in regular_validations]
                     
                     # Check for extra keys in regular fields
                     extra_keys = set(normalized_payload.keys()) - set([normalize_key(v['key']) for v in regular_validations])
                     for extra_key in extra_keys:
                         value = normalized_payload.get(extra_key)
+                        original_key = payload_key_map.get(extra_key, extra_key)
+                        fuzzy_suggestion = build_fuzzy_suggestion(
+                            original_key,
+                            expected_keys,
+                            use_fuzzy_matching,
+                            'Possible match in sheet'
+                        )
                         results.append({
                             'eventName': event_name,
                             'key': extra_key,
@@ -1374,6 +1594,7 @@ def validate_website_logs_v2():
                             'expectedType': 'EXTRA',
                             'receivedType': get_value_type(value),
                             'validationStatus': 'Extra key present in the log',
+                            'fuzzySuggestion': fuzzy_suggestion,
                             'line_number': line_number
                         })
 
@@ -1395,6 +1616,12 @@ def validate_website_logs_v2():
                                 'line_number': line_number
                             })
                         elif normalized_key not in normalized_payload:
+                            fuzzy_suggestion = build_fuzzy_suggestion(
+                                key,
+                                list(payload.keys()),
+                                use_fuzzy_matching,
+                                'Possible match in logs'
+                            )
                             results.append({
                                 'eventName': event_name,
                                 'key': key,
@@ -1402,6 +1629,7 @@ def validate_website_logs_v2():
                                 'expectedType': expected_type,
                                 'receivedType': 'not present',
                                 'validationStatus': 'Payload not present in the log',
+                                'fuzzySuggestion': fuzzy_suggestion,
                                 'line_number': line_number
                             })
                         else:
@@ -1422,9 +1650,18 @@ def validate_website_logs_v2():
                 else:
                     # Regular validation for non-array payloads
                     normalized_payload = {normalize_key(k): v for k, v in payload.items()}
+                    payload_key_map = {normalize_key(k): k for k in payload.keys()}
+                    expected_keys = [v['key'] for v in validations]
                     extra_keys = set(normalized_payload.keys()) - set([normalize_key(v['key']) for v in validations])
                     for extra_key in extra_keys:
                         value = normalized_payload.get(extra_key)
+                        original_key = payload_key_map.get(extra_key, extra_key)
+                        fuzzy_suggestion = build_fuzzy_suggestion(
+                            original_key,
+                            expected_keys,
+                            use_fuzzy_matching,
+                            'Possible match in sheet'
+                        )
                         results.append({
                             'eventName': event_name,
                             'key': extra_key,
@@ -1432,6 +1669,7 @@ def validate_website_logs_v2():
                             'expectedType': 'EXTRA',
                             'receivedType': get_value_type(value),
                             'validationStatus': 'Extra key present in the log',
+                            'fuzzySuggestion': fuzzy_suggestion,
                             'line_number': line_number
                         })
 
@@ -1455,6 +1693,12 @@ def validate_website_logs_v2():
                         value = normalized_payload.get(normalized_key)
 
                         if normalized_key not in normalized_payload:
+                            fuzzy_suggestion = build_fuzzy_suggestion(
+                                key,
+                                list(payload.keys()),
+                                use_fuzzy_matching,
+                                'Possible match in logs'
+                            )
                             results.append({
                                 'eventName': event_name,
                                 'key': key,
@@ -1462,6 +1706,7 @@ def validate_website_logs_v2():
                                 'expectedType': expected_type,
                                 'receivedType': 'not present',
                                 'validationStatus': 'Payload not present in the log',
+                                'fuzzySuggestion': fuzzy_suggestion,
                                 'line_number': line_number
                             })
                         else:
@@ -1491,7 +1736,12 @@ def validate_website_logs_v2():
             for entry in log_entries:
                 payload = entry['payload']
                 line_number = entry['line_number']
-                
+                fuzzy_suggestion = build_fuzzy_suggestion(
+                    extra_event,
+                    csv_events,
+                    use_fuzzy_matching,
+                    'Possible match in sheet'
+                )
                 results.append({
                     'eventName': extra_event,
                     'key': 'EVENT_NAME',
@@ -1500,6 +1750,7 @@ def validate_website_logs_v2():
                     'receivedType': 'extra event in logs',
                     'validationStatus': 'Extra event present in logs',
                     'comment': f'Event "{extra_event}" found in logs but not defined in CSV validation rules',
+                    'fuzzySuggestion': fuzzy_suggestion,
                     'line_number': line_number
                 })
                 
@@ -1572,7 +1823,7 @@ def download_results():
         
         # Create CSV content
         output = io.StringIO()
-        writer = csv.DictWriter(output, fieldnames=['eventName', 'key', 'value', 'expectedType', 'receivedType', 'validationStatus', 'comment'])
+        writer = csv.DictWriter(output, fieldnames=['eventName', 'key', 'value', 'expectedType', 'receivedType', 'validationStatus', 'comment', 'fuzzySuggestion'])
         writer.writeheader()
         
         # Add comments to results if not present and prepare clean results for CSV
@@ -1586,7 +1837,8 @@ def download_results():
                 'expectedType': result.get('expectedType', ''),
                 'receivedType': result.get('receivedType', ''),
                 'validationStatus': result.get('validationStatus', ''),
-                'comment': result.get('comment', '')
+                'comment': result.get('comment', ''),
+                'fuzzySuggestion': result.get('fuzzySuggestion', '')
             }
             
             # Add comment if not present

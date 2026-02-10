@@ -88,6 +88,7 @@
         .status-empty { background-color: #fff3cd !important; color: #856404 !important; }
         .status-extra { background-color: #d1ecf1 !important; color: #0c5460 !important; }
         .status-notpresent { background-color: #042508 !important; color: #7f7b97 !important; }
+        .status-eventnotpresent { background-color: #381d00 !important; color: #7f7b97 !important; }
         .status-csv { background-color: #e2e3e5 !important; color: #383d41 !important; }
         .status-extra-event { background-color: #f8d7da !important; color: #721c24 !important; }
         .status-extra-field { background-color: #fff3cd !important; color: #856404 !important; }
@@ -117,6 +118,12 @@
             padding: 15px;
             margin-bottom: 20px;
             border-radius: 5px;
+        }
+        .fuzzy-col {
+            max-width: 240px;
+            white-space: normal;
+            word-break: break-word;
+            overflow-wrap: anywhere;
         }
         .sort-header {
             cursor: pointer;
@@ -228,6 +235,12 @@
                         <input class="form-check-input" type="checkbox" id="flexibleFloatValidation" name="flexibleFloatValidation">
                         <label class="form-check-label" for="flexibleFloatValidation">
                             Flexible Float Validation (Accept integers as valid floats)
+                        </label>
+                    </div>
+                    <div class="form-check form-switch mt-2">
+                        <input class="form-check-input" type="checkbox" id="fuzzyMatching" name="fuzzyMatching">
+                        <label class="form-check-label" for="fuzzyMatching">
+                            Enable Fuzzy Matching (suggest possible event/key matches)
                         </label>
                     </div>
                 </div>
@@ -447,6 +460,24 @@
                     </div>
                 </div>
                 <div class="col-md-4 mb-3">
+                    <div class="filter-dropdown">
+                        <div class="filter-header" data-filter="fuzzySuggestion">
+                            Fuzzy Suggestion <span class="filter-icon">▼</span>
+                        </div>
+                        <div class="filter-content" id="fuzzySuggestionFilter">
+                            <div class="filter-checkbox">
+                                <input type="checkbox" id="fuzzySuggestionSelectAll" checked>
+                                <label for="fuzzySuggestionSelectAll">Select All</label>
+                            </div>
+                            <div id="fuzzySuggestionOptions"></div>
+                            <div class="filter-actions">
+                                <button class="btn btn-sm btn-primary" onclick="applyFilter('fuzzySuggestion')">Apply</button>
+                                <button class="btn btn-sm btn-secondary" onclick="clearFilter('fuzzySuggestion')">Clear</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3">
                     <button class="btn btn-secondary" id="clearFilters">Clear All Filters</button>
                 </div>
                 <div class="col-md-4 mb-3">
@@ -473,6 +504,7 @@
                         <th class="sort-header" data-sort="expectedType">Expected Type <span class="sort-icon">↕</span></th>
                         <th class="sort-header" data-sort="receivedType">Received Type <span class="sort-icon">↕</span></th>
                         <th class="sort-header" data-sort="validationStatus">Status <span class="sort-icon">↕</span></th>
+                        <th>Fuzzy Suggestion</th>
                     </tr>
                 </thead>
                 <tbody id="resultsBody"></tbody>
@@ -492,7 +524,8 @@
             eventName: [],
             status: [],
             expectedType: [],
-            receivedType: []
+            receivedType: [],
+            fuzzySuggestion: []
         };
 
         $('#dateRange').daterangepicker({
@@ -555,6 +588,8 @@
             // Get flexible float validation setting
             const flexibleFloatValidation = $('#flexibleFloatValidation').is(':checked');
             formData.append('flexible_float_validation', flexibleFloatValidation);
+            const fuzzyMatching = $('#fuzzyMatching').is(':checked');
+            formData.append('fuzzy_matching', fuzzyMatching);
 
             let endpoint = '/upload';
             if (validationMode === 'website') {
@@ -751,12 +786,18 @@
             const expectedTypes = new Set();
             const receivedTypes = new Set();
             const statuses = new Set();
+            const fuzzyPresence = new Set();
             
             currentResults.forEach(result => {
                 if (result.eventName) eventNames.add(result.eventName);
                 if (result.expectedType) expectedTypes.add(result.expectedType);
                 if (result.receivedType) receivedTypes.add(result.receivedType);
                 if (result.validationStatus) statuses.add(result.validationStatus);
+                if (result.fuzzySuggestion && String(result.fuzzySuggestion).trim() !== '') {
+                    fuzzyPresence.add('Exists');
+                } else {
+                    fuzzyPresence.add('Not Exists');
+                }
             });
 
             console.log('Available statuses:', Array.from(statuses));
@@ -765,6 +806,7 @@
             updateFilterOptions('status', statuses);
             updateFilterOptions('expectedType', expectedTypes);
             updateFilterOptions('receivedType', receivedTypes);
+            updateFilterOptions('fuzzySuggestion', fuzzyPresence);
         }
 
         function updateFilterOptions(filterId, values) {
@@ -830,7 +872,8 @@
                 eventName: activeFilters.eventName,
                 validationStatus: activeFilters.status,
                 expectedType: activeFilters.expectedType,
-                receivedType: activeFilters.receivedType
+                receivedType: activeFilters.receivedType,
+                fuzzySuggestion: activeFilters.fuzzySuggestion
             };
 
             // Get the current domain to ensure we're hitting the right server
@@ -972,19 +1015,22 @@
                         <td>${result.expectedType}</td>
                         <td>${result.receivedType}</td>
                         <td class="validation-status ${statusClass}">${result.validationStatus}</td>
+                        <td class="fuzzy-col">${result.fuzzySuggestion || ''}</td>
                     </tr>
                 `);
             });
         }
 
         function getStatusClass(status) {
-            if (status === 'Valid') return 'status-valid';
-            if (status === 'Invalid/Wrong datatype/value') return 'status-invalid';
-            if (status === 'Payload value is Empty') return 'status-empty';
-            if (status === 'Extra key present in the log') return 'status-extra';
-            if (status === 'Extra event present in logs') return 'status-extra-event';
-            if (status === 'Field from extra event') return 'status-extra-field';
-            if (status === 'Event name not present in the logs') return 'status-notpresent';
+            if (status.startsWith('Valid')) return 'status-valid';
+            if (status.startsWith('Invalid/Wrong datatype/value')) return 'status-invalid';
+            if (status.startsWith('Payload value is Empty')) return 'status-empty';
+            if (status.startsWith('Extra key present in the log')) return 'status-extra';
+            if (status.startsWith('Extra event present in logs')) return 'status-extra-event';
+            if (status.startsWith('Field from extra event')) return 'status-extra-field';
+            if (status.startsWith('Event name not present in the logs')) return 'status-eventnotpresent';
+            if (status.startsWith('Payload not present in the log')) return 'status-notpresent';
+            if (status.startsWith('Unexpected key in array object')) return 'status-extra';
             return '';
         }
 
