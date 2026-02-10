@@ -476,6 +476,13 @@ def upload():
             except json.JSONDecodeError:
                 continue
 
+        # Count event occurrences in logs
+        log_event_counts = defaultdict(int)
+        for log in parsed_logs:
+            event_name = log.get("eventName")
+            if event_name:
+                log_event_counts[event_name] += 1
+
         # Map event names to payloads
         event_payload_map = {
             log.get("eventName"): log.get("payload", {}) for log in parsed_logs
@@ -712,7 +719,10 @@ def upload():
                 'log_events_count': len(log_events),
                 'csv_events': list(csv_events),
                 'log_events': list(log_events),
-                'extra_events': list(extra_events)
+                'extra_events': list(extra_events),
+                'log_event_counts': dict(log_event_counts),
+                'log_event_occurrences_total': sum(log_event_counts.values()),
+                'fully_valid_events_count': len(fully_valid_events)
             },
             'fully_valid_events': fully_valid_events,
             'original_logs': original_logs # Add original_logs to the response
@@ -846,6 +856,13 @@ def validate_website_logs():
             except json.JSONDecodeError as e:
                 app.logger.warning(f'Line {line_num}: Invalid JSON format - {str(e)}')
                 continue
+
+        # Count event occurrences in logs
+        log_event_counts = defaultdict(int)
+        for log in parsed_logs:
+            event_name = log.get('eventName')
+            if event_name:
+                log_event_counts[event_name] += 1
 
         # Map event names to payloads
         event_payload_map = {}
@@ -1114,7 +1131,10 @@ def validate_website_logs():
                 'csv_events': list(csv_events),
                 'log_events': list(log_events),
                 'extra_events': list(extra_events),
-                'total_log_entries': len(parsed_logs)
+                'total_log_entries': len(parsed_logs),
+                'log_event_counts': dict(log_event_counts),
+                'log_event_occurrences_total': sum(log_event_counts.values()),
+                'fully_valid_events_count': len(fully_valid_events)
             },
             'fully_valid_events': fully_valid_events,
             'original_logs': original_logs
@@ -1249,6 +1269,13 @@ def validate_website_logs_v2():
                 except json.JSONDecodeError:
                     # Incomplete JSON, continue accumulating lines
                     continue
+
+        # Count event occurrences in logs
+        log_event_counts = defaultdict(int)
+        for log in parsed_logs:
+            event_name = log.get('eventName')
+            if event_name:
+                log_event_counts[event_name] += 1
 
         # Map event names to payloads
         event_payload_map = {}
@@ -1517,7 +1544,10 @@ def validate_website_logs_v2():
                 'csv_events': list(csv_events),
                 'log_events': list(log_events),
                 'extra_events': list(extra_events),
-                'total_log_entries': len(parsed_logs)
+                'total_log_entries': len(parsed_logs),
+                'log_event_counts': dict(log_event_counts),
+                'log_event_occurrences_total': sum(log_event_counts.values()),
+                'fully_valid_events_count': len(fully_valid_events)
             },
             'fully_valid_events': fully_valid_events,
             'original_logs': original_logs

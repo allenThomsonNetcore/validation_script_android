@@ -315,13 +315,17 @@
                         <div class="card-body">
                             <h5 class="card-title">Event Summary</h5>
                             <div class="row">
-                                <div class="col-6">
+                                <div class="col-4">
                                     <p class="mb-1"><strong>CSV Events:</strong></p>
                                     <p class="text-primary" id="csvEventsCount">0</p>
                                 </div>
-                                <div class="col-6">
+                                <div class="col-4">
                                     <p class="mb-1"><strong>Log Events:</strong></p>
                                     <p class="text-success" id="logEventsCount">0</p>
+                                </div>
+                                <div class="col-4">
+                                    <p class="mb-1"><strong>Fully Valid:</strong></p>
+                                    <p class="text-success" id="fullyValidEventsCount">0</p>
                                 </div>
                             </div>
                         </div>
@@ -340,6 +344,26 @@
                                     <p class="mb-1"><strong>Extra Events:</strong></p>
                                     <p class="text-info" id="extraEventsCount">0</p>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Log Event Occurrences</h5>
+                            <div class="table-responsive" style="max-height: 220px; overflow:auto;">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Event Name</th>
+                                            <th>Count</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="logEventCountsBody"></tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
@@ -574,7 +598,9 @@
                         csv_events_count: 0,
                         log_events_count: 0,
                         csv_events: [],
-                        log_events: []
+                        log_events: [],
+                        log_event_counts: {},
+                        fully_valid_events_count: 0
                     };
                     window.originalLogs = {};
                     // ...existing code...
@@ -585,6 +611,12 @@
                         }
                         if (response.original_logs) {
                             window.originalLogs = response.original_logs;
+                        }
+                        if (!currentSummary.log_event_counts) {
+                            currentSummary.log_event_counts = {};
+                        }
+                        if (!currentSummary.fully_valid_events_count && response.fully_valid_events) {
+                            currentSummary.fully_valid_events_count = response.fully_valid_events.length;
                         }
                     } else if (Array.isArray(response)) {
                         currentResults = response;
@@ -687,6 +719,7 @@
             // Update event count displays
             $('#csvEventsCount').text(currentSummary.csv_events_count || 0);
             $('#logEventsCount').text(currentSummary.log_events_count || 0);
+            $('#fullyValidEventsCount').text(currentSummary.fully_valid_events_count || 0);
             
             // Calculate missing and extra events
             const csvEvents = new Set(currentSummary.csv_events || []);
@@ -697,6 +730,20 @@
             
             $('#missingEventsCount').text(missingEvents);
             $('#extraEventsCount').text(extraEvents);
+
+            // Populate log event occurrence table
+            const logEventCounts = currentSummary.log_event_counts || {};
+            const entries = Object.entries(logEventCounts)
+                .sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0]));
+            const tbody = $('#logEventCountsBody');
+            tbody.empty();
+            if (entries.length === 0) {
+                tbody.append('<tr><td colspan="2">No log events found</td></tr>');
+            } else {
+                entries.forEach(([name, count]) => {
+                    tbody.append(`<tr><td>${name}</td><td>${count}</td></tr>`);
+                });
+            }
         }
 
         function updateFilters() {
