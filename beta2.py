@@ -556,6 +556,18 @@ def upload():
             log.get("eventName"): log.get("payload", {}) for log in parsed_logs
         }
         log_events = set(event_payload_map.keys())
+
+        # Build event logs map for UI
+        event_logs_map = defaultdict(list)
+        for idx, log in enumerate(parsed_logs, 1):
+            event_name = log.get("eventName")
+            if not event_name:
+                continue
+            event_logs_map[event_name].append({
+                'occurrence': idx,
+                'payload': log.get('payload', {}),
+                'full_log': log
+            })
         
         # Validate the data
         results = []
@@ -849,7 +861,8 @@ def upload():
                 'fully_valid_events_count': len(fully_valid_events)
             },
             'fully_valid_events': fully_valid_events,
-            'original_logs': original_logs # Add original_logs to the response
+            'original_logs': original_logs, # Add original_logs to the response
+            'event_logs': event_logs_map
         }
         
         return jsonify(response_data)
@@ -1016,6 +1029,30 @@ def validate_website_logs():
                 'full_log': log['full_log']
             })
         log_events = set(event_payload_map.keys())
+
+        # Build event logs map for UI
+        event_logs_map = defaultdict(list)
+        for log in parsed_logs:
+            event_name = log.get('eventName')
+            if not event_name:
+                continue
+            event_logs_map[event_name].append({
+                'line_number': log.get('line_number'),
+                'payload': log.get('payload', {}),
+                'full_log': log.get('full_log')
+            })
+
+        # Build event logs map for UI
+        event_logs_map = defaultdict(list)
+        for log in parsed_logs:
+            event_name = log.get('eventName')
+            if not event_name:
+                continue
+            event_logs_map[event_name].append({
+                'line_number': log.get('line_number'),
+                'payload': log.get('payload', {}),
+                'full_log': log.get('full_log')
+            })
 
         # Validate the data
         results = []
@@ -1332,7 +1369,8 @@ def validate_website_logs():
                 'fully_valid_events_count': len(fully_valid_events)
             },
             'fully_valid_events': fully_valid_events,
-            'original_logs': original_logs
+            'original_logs': original_logs,
+            'event_logs': event_logs_map
         }
         return jsonify(response_data)
 
@@ -1799,7 +1837,8 @@ def validate_website_logs_v2():
                 'fully_valid_events_count': len(fully_valid_events)
             },
             'fully_valid_events': fully_valid_events,
-            'original_logs': original_logs
+            'original_logs': original_logs,
+            'event_logs': event_logs_map
         }
         return jsonify(response_data)
 

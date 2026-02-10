@@ -512,6 +512,18 @@
         </div>
     </div>
 
+    <div class="modal fade" id="eventLogModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="eventLogModalTitle">Event Logs</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="eventLogModalBody"></div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/moment/moment.min.js"></script>
@@ -638,6 +650,7 @@
                         fully_valid_events_count: 0
                     };
                     window.originalLogs = {};
+                    window.eventLogs = {};
                     // ...existing code...
                     if (response && response.results && Array.isArray(response.results)) {
                         currentResults = response.results;
@@ -646,6 +659,9 @@
                         }
                         if (response.original_logs) {
                             window.originalLogs = response.original_logs;
+                        }
+                        if (response.event_logs) {
+                            window.eventLogs = response.event_logs;
                         }
                         if (!currentSummary.log_event_counts) {
                             currentSummary.log_event_counts = {};
@@ -1014,7 +1030,7 @@
                 const statusClass = getStatusClass(result.validationStatus);
                 tbody.append(`
                     <tr>
-                        <td>${result.eventName}</td>
+                        <td><a href="#" class="event-log-link" data-event="${result.eventName}">${result.eventName}</a></td>
                         <td>${result.key}</td>
                         <td>${result.value}</td>
                         <td>${result.expectedType}</td>
@@ -1025,6 +1041,65 @@
                 `);
             });
         }
+
+        function escapeHtml(value) {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function formatJson(value) {
+            if (value === null || value === undefined) return '';
+            if (typeof value === 'string') {
+                try {
+                    const parsed = JSON.parse(value);
+                    return JSON.stringify(parsed, null, 2);
+                } catch (e) {
+                    return value;
+                }
+            }
+            return JSON.stringify(value, null, 2);
+        }
+
+        $(document).on('click', '.event-log-link', function(e) {
+            e.preventDefault();
+            const eventName = $(this).data('event');
+            const entries = (window.eventLogs && window.eventLogs[eventName]) ? window.eventLogs[eventName] : [];
+            $('#eventLogModalTitle').text(`Event Logs: ${eventName}`);
+
+            if (!entries || entries.length === 0) {
+                $('#eventLogModalBody').html('<p>No log entries found for this event.</p>');
+            } else {
+                let html = '';
+                entries.forEach((entry, index) => {
+                    const header = entry.line_number ? `Occurrence #${index + 1} (Line ${entry.line_number})` : `Occurrence #${index + 1}`;
+                    const fullLog = escapeHtml(formatJson(entry.full_log || entry.fullLog || entry.full_log));
+                    const payload = escapeHtml(formatJson(entry.payload));
+                    html += `
+                        <div class="mb-3">
+                            <h6>${header}</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-2"><strong>Full Log</strong></div>
+                                    <pre class="bg-light p-2 border rounded">${fullLog}</pre>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-2"><strong>Payload</strong></div>
+                                    <pre class="bg-light p-2 border rounded">${payload}</pre>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                $('#eventLogModalBody').html(html);
+            }
+
+            const modal = new bootstrap.Modal(document.getElementById('eventLogModal'));
+            modal.show();
+        });
 
         function getStatusClass(status) {
             if (status.startsWith('Valid')) return 'status-valid';
