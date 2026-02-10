@@ -793,9 +793,14 @@
                 if (result.expectedType) expectedTypes.add(result.expectedType);
                 if (result.receivedType) receivedTypes.add(result.receivedType);
                 if (result.validationStatus) statuses.add(result.validationStatus);
-                if (result.fuzzySuggestion && String(result.fuzzySuggestion).trim() !== '') {
-                    fuzzyPresence.add('Exists');
-                } else {
+                const suggestionText = (result.fuzzySuggestion || '').toString().toLowerCase();
+                if (suggestionText.includes('possible match in sheet')) {
+                    fuzzyPresence.add('Possible match in sheet');
+                }
+                if (suggestionText.includes('possible match in logs')) {
+                    fuzzyPresence.add('Possible match in logs');
+                }
+                if (suggestionText.trim() === '') {
                     fuzzyPresence.add('Not Exists');
                 }
             });

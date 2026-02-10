@@ -887,19 +887,17 @@ def filter_results():
                         ]
                     elif field == 'fuzzySuggestion':
                         normalized = [str(v).strip().lower() for v in values]
-                        wants_exists = any(v.startswith('exist') for v in normalized)
-                        wants_not = any('not' in v for v in normalized)
-                        if wants_exists and wants_not:
-                            continue
-                        if wants_exists:
+                        want_sheet = any('possible match in sheet' in v for v in normalized)
+                        want_logs = any('possible match in logs' in v for v in normalized)
+                        want_not = any('not exists' in v for v in normalized)
+                        if want_sheet or want_logs or want_not:
                             filtered_results = [
                                 r for r in filtered_results
-                                if str(r.get('fuzzySuggestion', '')).strip() != ''
-                            ]
-                        elif wants_not:
-                            filtered_results = [
-                                r for r in filtered_results
-                                if str(r.get('fuzzySuggestion', '')).strip() == ''
+                                if (
+                                    (want_sheet and 'possible match in sheet' in str(r.get('fuzzySuggestion', '')).lower()) or
+                                    (want_logs and 'possible match in logs' in str(r.get('fuzzySuggestion', '')).lower()) or
+                                    (want_not and str(r.get('fuzzySuggestion', '')).strip() == '')
+                                )
                             ]
                     else:
                         filtered_results = [
