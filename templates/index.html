@@ -88,6 +88,7 @@
         .status-empty { background-color: #fff3cd !important; color: #856404 !important; }
         .status-extra { background-color: #d1ecf1 !important; color: #0c5460 !important; }
         .status-notpresent { background-color: #042508 !important; color: #7f7b97 !important; }
+        .status-eventnotpresent { background-color: #381d00 !important; color: #7f7b97 !important; }
         .status-csv { background-color: #e2e3e5 !important; color: #383d41 !important; }
         .status-extra-event { background-color: #f8d7da !important; color: #721c24 !important; }
         .status-extra-field { background-color: #fff3cd !important; color: #856404 !important; }
@@ -117,6 +118,21 @@
             padding: 15px;
             margin-bottom: 20px;
             border-radius: 5px;
+        }
+        .fuzzy-col {
+            max-width: 240px;
+            white-space: normal;
+            word-break: break-word;
+            overflow-wrap: anywhere;
+        }
+        .event-log-link,
+        .event-log-link:hover,
+        .event-log-link:focus {
+            color: #000;
+            text-decoration: none;
+        }
+        .event-log-link {
+            cursor: pointer;
         }
         .sort-header {
             cursor: pointer;
@@ -230,6 +246,12 @@
                             Flexible Float Validation (Accept integers as valid floats)
                         </label>
                     </div>
+                    <div class="form-check form-switch mt-2">
+                        <input class="form-check-input" type="checkbox" id="fuzzyMatching" name="fuzzyMatching">
+                        <label class="form-check-label" for="fuzzyMatching">
+                            Enable Fuzzy Matching (suggest possible event/key matches)
+                        </label>
+                    </div>
                 </div>
                 
                 <form id="uploadForm" enctype="multipart/form-data">
@@ -315,13 +337,17 @@
                         <div class="card-body">
                             <h5 class="card-title">Event Summary</h5>
                             <div class="row">
-                                <div class="col-6">
+                                <div class="col-4">
                                     <p class="mb-1"><strong>CSV Events:</strong></p>
                                     <p class="text-primary" id="csvEventsCount">0</p>
                                 </div>
-                                <div class="col-6">
+                                <div class="col-4">
                                     <p class="mb-1"><strong>Log Events:</strong></p>
                                     <p class="text-success" id="logEventsCount">0</p>
+                                </div>
+                                <div class="col-4">
+                                    <p class="mb-1"><strong>Fully Valid:</strong></p>
+                                    <p class="text-success" id="fullyValidEventsCount">0</p>
                                 </div>
                             </div>
                         </div>
@@ -340,6 +366,26 @@
                                     <p class="mb-1"><strong>Extra Events:</strong></p>
                                     <p class="text-info" id="extraEventsCount">0</p>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Log Event Occurrences</h5>
+                            <div class="table-responsive" style="max-height: 220px; overflow:auto;">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Event Name</th>
+                                            <th>Count</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="logEventCountsBody"></tbody>
+                                </table>
                             </div>
                         </div>
                     </div>
@@ -423,6 +469,24 @@
                     </div>
                 </div>
                 <div class="col-md-4 mb-3">
+                    <div class="filter-dropdown">
+                        <div class="filter-header" data-filter="fuzzySuggestion">
+                            Fuzzy Suggestion <span class="filter-icon">▼</span>
+                        </div>
+                        <div class="filter-content" id="fuzzySuggestionFilter">
+                            <div class="filter-checkbox">
+                                <input type="checkbox" id="fuzzySuggestionSelectAll" checked>
+                                <label for="fuzzySuggestionSelectAll">Select All</label>
+                            </div>
+                            <div id="fuzzySuggestionOptions"></div>
+                            <div class="filter-actions">
+                                <button class="btn btn-sm btn-primary" onclick="applyFilter('fuzzySuggestion')">Apply</button>
+                                <button class="btn btn-sm btn-secondary" onclick="clearFilter('fuzzySuggestion')">Clear</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3">
                     <button class="btn btn-secondary" id="clearFilters">Clear All Filters</button>
                 </div>
                 <div class="col-md-4 mb-3">
@@ -449,10 +513,23 @@
                         <th class="sort-header" data-sort="expectedType">Expected Type <span class="sort-icon">↕</span></th>
                         <th class="sort-header" data-sort="receivedType">Received Type <span class="sort-icon">↕</span></th>
                         <th class="sort-header" data-sort="validationStatus">Status <span class="sort-icon">↕</span></th>
+                        <th>Fuzzy Suggestion</th>
                     </tr>
                 </thead>
                 <tbody id="resultsBody"></tbody>
             </table>
+        </div>
+    </div>
+
+    <div class="modal fade" id="eventLogModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="eventLogModalTitle">Event Logs</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="eventLogModalBody"></div>
+            </div>
         </div>
     </div>
 
@@ -468,7 +545,8 @@
             eventName: [],
             status: [],
             expectedType: [],
-            receivedType: []
+            receivedType: [],
+            fuzzySuggestion: []
         };
 
         $('#dateRange').daterangepicker({
@@ -531,6 +609,8 @@
             // Get flexible float validation setting
             const flexibleFloatValidation = $('#flexibleFloatValidation').is(':checked');
             formData.append('flexible_float_validation', flexibleFloatValidation);
+            const fuzzyMatching = $('#fuzzyMatching').is(':checked');
+            formData.append('fuzzy_matching', fuzzyMatching);
 
             let endpoint = '/upload';
             if (validationMode === 'website') {
@@ -574,9 +654,12 @@
                         csv_events_count: 0,
                         log_events_count: 0,
                         csv_events: [],
-                        log_events: []
+                        log_events: [],
+                        log_event_counts: {},
+                        fully_valid_events_count: 0
                     };
                     window.originalLogs = {};
+                    window.eventLogs = {};
                     // ...existing code...
                     if (response && response.results && Array.isArray(response.results)) {
                         currentResults = response.results;
@@ -585,6 +668,15 @@
                         }
                         if (response.original_logs) {
                             window.originalLogs = response.original_logs;
+                        }
+                        if (response.event_logs) {
+                            window.eventLogs = response.event_logs;
+                        }
+                        if (!currentSummary.log_event_counts) {
+                            currentSummary.log_event_counts = {};
+                        }
+                        if (!currentSummary.fully_valid_events_count && response.fully_valid_events) {
+                            currentSummary.fully_valid_events_count = response.fully_valid_events.length;
                         }
                     } else if (Array.isArray(response)) {
                         currentResults = response;
@@ -687,6 +779,7 @@
             // Update event count displays
             $('#csvEventsCount').text(currentSummary.csv_events_count || 0);
             $('#logEventsCount').text(currentSummary.log_events_count || 0);
+            $('#fullyValidEventsCount').text(currentSummary.fully_valid_events_count || 0);
             
             // Calculate missing and extra events
             const csvEvents = new Set(currentSummary.csv_events || []);
@@ -697,6 +790,20 @@
             
             $('#missingEventsCount').text(missingEvents);
             $('#extraEventsCount').text(extraEvents);
+
+            // Populate log event occurrence table
+            const logEventCounts = currentSummary.log_event_counts || {};
+            const entries = Object.entries(logEventCounts)
+                .sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0]));
+            const tbody = $('#logEventCountsBody');
+            tbody.empty();
+            if (entries.length === 0) {
+                tbody.append('<tr><td colspan="2">No log events found</td></tr>');
+            } else {
+                entries.forEach(([name, count]) => {
+                    tbody.append(`<tr><td>${name}</td><td>${count}</td></tr>`);
+                });
+            }
         }
 
         function updateFilters() {
@@ -704,12 +811,23 @@
             const expectedTypes = new Set();
             const receivedTypes = new Set();
             const statuses = new Set();
+            const fuzzyPresence = new Set();
             
             currentResults.forEach(result => {
                 if (result.eventName) eventNames.add(result.eventName);
                 if (result.expectedType) expectedTypes.add(result.expectedType);
                 if (result.receivedType) receivedTypes.add(result.receivedType);
                 if (result.validationStatus) statuses.add(result.validationStatus);
+                const suggestionText = (result.fuzzySuggestion || '').toString().toLowerCase();
+                if (suggestionText.includes('possible match in sheet')) {
+                    fuzzyPresence.add('Possible match in sheet');
+                }
+                if (suggestionText.includes('possible match in logs')) {
+                    fuzzyPresence.add('Possible match in logs');
+                }
+                if (suggestionText.trim() === '') {
+                    fuzzyPresence.add('Not Exists');
+                }
             });
 
             console.log('Available statuses:', Array.from(statuses));
@@ -718,6 +836,7 @@
             updateFilterOptions('status', statuses);
             updateFilterOptions('expectedType', expectedTypes);
             updateFilterOptions('receivedType', receivedTypes);
+            updateFilterOptions('fuzzySuggestion', fuzzyPresence);
         }
 
         function updateFilterOptions(filterId, values) {
@@ -783,7 +902,8 @@
                 eventName: activeFilters.eventName,
                 validationStatus: activeFilters.status,
                 expectedType: activeFilters.expectedType,
-                receivedType: activeFilters.receivedType
+                receivedType: activeFilters.receivedType,
+                fuzzySuggestion: activeFilters.fuzzySuggestion
             };
 
             // Get the current domain to ensure we're hitting the right server
@@ -919,25 +1039,87 @@
                 const statusClass = getStatusClass(result.validationStatus);
                 tbody.append(`
                     <tr>
-                        <td>${result.eventName}</td>
+                        <td><a href="#" class="event-log-link" data-event="${result.eventName}">${result.eventName}</a></td>
                         <td>${result.key}</td>
                         <td>${result.value}</td>
                         <td>${result.expectedType}</td>
                         <td>${result.receivedType}</td>
                         <td class="validation-status ${statusClass}">${result.validationStatus}</td>
+                        <td class="fuzzy-col">${result.fuzzySuggestion || ''}</td>
                     </tr>
                 `);
             });
         }
 
+        function escapeHtml(value) {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function formatJson(value) {
+            if (value === null || value === undefined) return '';
+            if (typeof value === 'string') {
+                try {
+                    const parsed = JSON.parse(value);
+                    return JSON.stringify(parsed, null, 2);
+                } catch (e) {
+                    return value;
+                }
+            }
+            return JSON.stringify(value, null, 2);
+        }
+
+        $(document).on('click', '.event-log-link', function(e) {
+            e.preventDefault();
+            const eventName = $(this).data('event');
+            const entries = (window.eventLogs && window.eventLogs[eventName]) ? window.eventLogs[eventName] : [];
+            $('#eventLogModalTitle').text(`Event Logs: ${eventName}`);
+
+            if (!entries || entries.length === 0) {
+                $('#eventLogModalBody').html('<p>No log entries found for this event.</p>');
+            } else {
+                let html = '';
+                entries.forEach((entry, index) => {
+                    const header = entry.line_number ? `Occurrence #${index + 1} (Line ${entry.line_number})` : `Occurrence #${index + 1}`;
+                    const fullLog = escapeHtml(formatJson(entry.full_log || entry.fullLog || entry.full_log));
+                    const payload = escapeHtml(formatJson(entry.payload));
+                    html += `
+                        <div class="mb-3">
+                            <h6>${header}</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-2"><strong>Full Log</strong></div>
+                                    <pre class="bg-light p-2 border rounded">${fullLog}</pre>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-2"><strong>Payload</strong></div>
+                                    <pre class="bg-light p-2 border rounded">${payload}</pre>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                $('#eventLogModalBody').html(html);
+            }
+
+            const modal = new bootstrap.Modal(document.getElementById('eventLogModal'));
+            modal.show();
+        });
+
         function getStatusClass(status) {
-            if (status === 'Valid') return 'status-valid';
-            if (status === 'Invalid/Wrong datatype/value') return 'status-invalid';
-            if (status === 'Payload value is Empty') return 'status-empty';
-            if (status === 'Extra key present in the log') return 'status-extra';
-            if (status === 'Extra event present in logs') return 'status-extra-event';
-            if (status === 'Field from extra event') return 'status-extra-field';
-            if (status === 'Event name not present in the logs') return 'status-notpresent';
+            if (status.startsWith('Valid')) return 'status-valid';
+            if (status.startsWith('Invalid/Wrong datatype/value')) return 'status-invalid';
+            if (status.startsWith('Payload value is Empty')) return 'status-empty';
+            if (status.startsWith('Extra key present in the log')) return 'status-extra';
+            if (status.startsWith('Extra event present in logs')) return 'status-extra-event';
+            if (status.startsWith('Field from extra event')) return 'status-extra-field';
+            if (status.startsWith('Event name not present in the logs')) return 'status-eventnotpresent';
+            if (status.startsWith('Payload not present in the log')) return 'status-notpresent';
+            if (status.startsWith('Unexpected key in array object')) return 'status-extra';
             return '';
         }
 
