@@ -580,20 +580,19 @@
             return String(value).trim().toLowerCase().replace(/[^a-z0-9]+/g, '');
         }
 
-        function levenshteinDistance(a, b) {
+        // Similar to difflib.SequenceMatcher ratio: 2*M / (len(a)+len(b)),
+        // where M is approximated via LCS length for deterministic browser behavior.
+        function lcsLength(a, b) {
             const m = a.length;
             const n = b.length;
             const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
-            for (let i = 0; i <= m; i += 1) dp[i][0] = i;
-            for (let j = 0; j <= n; j += 1) dp[0][j] = j;
             for (let i = 1; i <= m; i += 1) {
                 for (let j = 1; j <= n; j += 1) {
-                    const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-                    dp[i][j] = Math.min(
-                        dp[i - 1][j] + 1,
-                        dp[i][j - 1] + 1,
-                        dp[i - 1][j - 1] + cost
-                    );
+                    if (a[i - 1] === b[j - 1]) {
+                        dp[i][j] = dp[i - 1][j - 1] + 1;
+                    } else {
+                        dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+                    }
                 }
             }
             return dp[m][n];
@@ -601,10 +600,10 @@
 
         function similarityRatio(a, b) {
             if (!a && !b) return 1;
-            const longest = Math.max(a.length, b.length);
-            if (longest === 0) return 1;
-            const distance = levenshteinDistance(a, b);
-            return 1 - (distance / longest);
+            const totalLength = a.length + b.length;
+            if (totalLength === 0) return 1;
+            const matches = lcsLength(a, b);
+            return (2 * matches) / totalLength;
         }
 
         function fuzzyBestMatch(target, candidates, threshold = FUZZY_MATCH_THRESHOLD) {
