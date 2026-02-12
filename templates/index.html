@@ -204,7 +204,7 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
-                        <a class="btn btn-info me-2" href="/push-notification" style="background-color:#c64802 !important; border-color: #c64802 !important;">📱 Push Notification</a>
+                        <a class="btn btn-info me-2 disabled" href="#" style="background-color:#c64802 !important; border-color: #c64802 !important;" aria-disabled="true">📱 Push Notification (Backend)</a>
                     </li>
                     <li class="nav-item">
                         <a class="btn btn-primary" href="https://contact-api-via-csv-7e94e.web.app/" target="_blank">Trigger Activity API</a>
@@ -259,7 +259,7 @@
                         <label for="csvFile" class="form-label">CSV File (Validation Rules)</label>
                         <input type="file" class="form-control" id="csvFile" name="csv_file" accept=".csv" required>
                         <div class="mt-2">
-                            <a href="/download_template" class="btn btn-outline-secondary btn-sm" download>
+                            <a href="/sample.csv" class="btn btn-outline-secondary btn-sm" download>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-download me-1" viewBox="0 0 16 16">
                                     <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"></path>
                                     <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"></path>
@@ -535,6 +535,7 @@
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/moment/moment.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
     <script>
@@ -548,6 +549,1101 @@
             receivedType: [],
             fuzzySuggestion: []
         };
+        const FUZZY_MATCH_THRESHOLD = 0.82;
+
+        function readFileText(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result || '');
+                reader.onerror = () => reject(new Error('Failed to read file'));
+                reader.readAsText(file);
+            });
+        }
+
+        function parseCsvRows(csvText) {
+            if (typeof Papa === 'undefined') {
+                throw new Error('CSV parser is not available');
+            }
+            const parsed = Papa.parse(csvText, {
+                header: true,
+                skipEmptyLines: true
+            });
+            return parsed.data || [];
+        }
+
+        function normalizeKey(key) {
+            return key ? String(key).replace(/ /g, '_').toLowerCase() : null;
+        }
+
+        function normalizeFuzzyText(value) {
+            if (value === null || value === undefined) return '';
+            return String(value).trim().toLowerCase().replace(/[^a-z0-9]+/g, '');
+        }
+
+        function levenshteinDistance(a, b) {
+            const m = a.length;
+            const n = b.length;
+            const dp = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+            for (let i = 0; i <= m; i += 1) dp[i][0] = i;
+            for (let j = 0; j <= n; j += 1) dp[0][j] = j;
+            for (let i = 1; i <= m; i += 1) {
+                for (let j = 1; j <= n; j += 1) {
+                    const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+                    dp[i][j] = Math.min(
+                        dp[i - 1][j] + 1,
+                        dp[i][j - 1] + 1,
+                        dp[i - 1][j - 1] + cost
+                    );
+                }
+            }
+            return dp[m][n];
+        }
+
+        function similarityRatio(a, b) {
+            if (!a && !b) return 1;
+            const longest = Math.max(a.length, b.length);
+            if (longest === 0) return 1;
+            const distance = levenshteinDistance(a, b);
+            return 1 - (distance / longest);
+        }
+
+        function fuzzyBestMatch(target, candidates, threshold = FUZZY_MATCH_THRESHOLD) {
+            const normalizedTarget = normalizeFuzzyText(target);
+            if (!normalizedTarget) return null;
+            let best = null;
+            let bestScore = 0;
+            for (const candidate of candidates) {
+                const normalizedCandidate = normalizeFuzzyText(candidate);
+                if (!normalizedCandidate) continue;
+                const score = similarityRatio(normalizedTarget, normalizedCandidate);
+                if (score > bestScore) {
+                    bestScore = score;
+                    best = candidate;
+                }
+            }
+            return bestScore >= threshold ? best : null;
+        }
+
+        function buildFuzzySuggestion(target, candidates, useFuzzyMatching, hint) {
+            if (!useFuzzyMatching) return '';
+            const match = fuzzyBestMatch(target, candidates || []);
+            return match ? `${hint}: ${match}` : '';
+        }
+
+        function getValueType(value) {
+            if (value === null || value === undefined) return 'null';
+            if (Array.isArray(value)) return 'array';
+            if (typeof value === 'boolean') return 'boolean';
+            if (typeof value === 'number') {
+                return Number.isInteger(value) ? 'integer' : 'float';
+            }
+            if (typeof value === 'string') {
+                if (/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2}:\d{2})?$/.test(value)) return 'date';
+                return 'text';
+            }
+            if (typeof value === 'object') return 'object';
+            return 'unknown';
+        }
+
+        function validateText(value) {
+            return typeof value === 'string' && value.trim() !== '';
+        }
+
+        function validateDate(value, eventName) {
+            const pattern = eventName === 'user_profile_push'
+                ? /^\d{4}-\d{2}-\d{2}$/
+                : /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
+            return typeof value === 'string' && pattern.test(value);
+        }
+
+        function validateInteger(value) {
+            return Number.isInteger(value);
+        }
+
+        function validateFloat(value, acceptIntAsFloat) {
+            if (acceptIntAsFloat) return typeof value === 'number';
+            return typeof value === 'number' && !Number.isInteger(value);
+        }
+
+        function getFormattedValue(value, expectedType) {
+            if (expectedType === 'float' && typeof value === 'number' && !Number.isNaN(value)) {
+                const asString = String(value);
+                if (!asString.includes('.')) return `${asString}.00`;
+                const parts = asString.split('.');
+                if (parts[1].length === 1) return `${asString}0`;
+                return asString;
+            }
+            return value;
+        }
+
+        function validateValue(value, expectedType, eventName, acceptIntAsFloat) {
+            if (value === null || value === undefined || value === '') return 'Null value';
+            if (expectedType === 'text') return validateText(value);
+            if (expectedType === 'date') return validateDate(value, eventName);
+            if (expectedType === 'integer') return validateInteger(value);
+            if (expectedType === 'float') {
+                const valid = validateFloat(value, acceptIntAsFloat);
+                if (valid && Number.isInteger(value) && acceptIntAsFloat) {
+                    return 'Valid (JSON serialization converted float to integer)';
+                }
+                return valid;
+            }
+            return false;
+        }
+
+        function parseCsvWithCaseNormalization(csvRows) {
+            const eventValidations = {};
+            const eventsWithoutPayload = new Set();
+            let currentEvent = null;
+
+            csvRows.forEach((row) => {
+                const eventName = (row.eventName || '').trim().toLowerCase();
+                if (eventName) currentEvent = eventName;
+                if (!currentEvent) return;
+                if (!eventValidations[currentEvent]) eventValidations[currentEvent] = [];
+
+                const key = (row.eventPayload || '').trim().toLowerCase();
+                const expectedType = (row.dataType || '').trim();
+                const required = String(row.required || '').toLowerCase() === 'true';
+                let condition = {};
+                const conditionRaw = (row.condition || '').trim();
+                if (conditionRaw) {
+                    try {
+                        condition = JSON.parse(conditionRaw);
+                    } catch (error) {
+                        condition = {};
+                    }
+                }
+
+                if (!key && !expectedType) {
+                    eventsWithoutPayload.add(currentEvent);
+                    return;
+                }
+
+                eventValidations[currentEvent].push({
+                    key,
+                    expectedType,
+                    required,
+                    condition
+                });
+
+                if (eventsWithoutPayload.has(currentEvent)) {
+                    eventsWithoutPayload.delete(currentEvent);
+                }
+            });
+
+            return { eventValidations, eventsWithoutPayload };
+        }
+
+        function getArrayFieldName(key) {
+            const match = /^(.+)\[\]\.(.+)$/.exec(key || '');
+            if (!match) return { arrayField: null, fieldName: null };
+            return { arrayField: match[1], fieldName: match[2] };
+        }
+
+        function validateArrayOfObjects(arrayPayload, validations, eventName, results, options) {
+            const arrayValidations = {};
+            const regularValidations = [];
+            const normalizedArrayPayload = {};
+
+            Object.entries(arrayPayload || {}).forEach(([k, v]) => {
+                normalizedArrayPayload[normalizeKey(k)] = v;
+            });
+
+            validations.forEach((validation) => {
+                const { arrayField, fieldName } = getArrayFieldName(validation.key);
+                if (arrayField && fieldName) {
+                    if (!arrayValidations[arrayField]) arrayValidations[arrayField] = {};
+                    arrayValidations[arrayField][normalizeKey(fieldName)] = {
+                        expectedType: validation.expectedType,
+                        originalKey: validation.key
+                    };
+                } else {
+                    regularValidations.push(validation);
+                }
+            });
+
+            if (Object.keys(arrayValidations).length === 0) return validations;
+
+            Object.entries(arrayValidations).forEach(([arrayField, fieldValidations]) => {
+                const arrayData = normalizedArrayPayload[arrayField] || [];
+                if (!Array.isArray(arrayData)) {
+                    const row = {
+                        eventName,
+                        key: arrayField,
+                        value: arrayData,
+                        expectedType: 'array',
+                        receivedType: getValueType(arrayData),
+                        validationStatus: 'Invalid array field'
+                    };
+                    if (options.lineNumber) row.line_number = options.lineNumber;
+                    results.push(row);
+                    return;
+                }
+
+                arrayData.forEach((obj, index) => {
+                    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+                        const row = {
+                            eventName,
+                            key: `${arrayField}[${index}]`,
+                            value: obj,
+                            expectedType: null,
+                            receivedType: getValueType(obj),
+                            validationStatus: 'Invalid object in array'
+                        };
+                        if (options.lineNumber) row.line_number = options.lineNumber;
+                        results.push(row);
+                        return;
+                    }
+
+                    const normalizedObj = {};
+                    Object.entries(obj).forEach(([k, v]) => {
+                        normalizedObj[normalizeKey(k)] = v;
+                    });
+
+                    Object.entries(fieldValidations).forEach(([fieldName, info]) => {
+                        if (!(fieldName in normalizedObj)) {
+                            const row = {
+                                eventName,
+                                key: `${arrayField}[${index}].${fieldName}`,
+                                value: null,
+                                expectedType: info.expectedType,
+                                receivedType: 'not present',
+                                validationStatus: 'Payload not present in the log',
+                                fuzzySuggestion: buildFuzzySuggestion(
+                                    fieldName,
+                                    Object.keys(obj),
+                                    options.useFuzzyMatching,
+                                    'Possible match in logs'
+                                )
+                            };
+                            if (options.lineNumber) row.line_number = options.lineNumber;
+                            results.push(row);
+                            return;
+                        }
+
+                        const value = normalizedObj[fieldName];
+                        const validationResult = validateValue(value, info.expectedType, eventName, options.acceptIntAsFloat);
+                        const status = validationResult && validationResult !== 'Null value'
+                            ? 'Valid'
+                            : validationResult === 'Null value'
+                                ? 'Payload value is Empty'
+                                : 'Invalid/Wrong datatype/value';
+                        const row = {
+                            eventName,
+                            key: `${arrayField}[${index}].${fieldName}`,
+                            value: getFormattedValue(value, info.expectedType),
+                            expectedType: info.expectedType,
+                            receivedType: getValueType(value),
+                            validationStatus: status
+                        };
+                        if (options.lineNumber) row.line_number = options.lineNumber;
+                        results.push(row);
+                    });
+
+                    const expectedFieldNames = Object.keys(fieldValidations);
+                    Object.keys(obj).forEach((key) => {
+                        const normalizedKey = normalizeKey(key);
+                        if (!(normalizedKey in fieldValidations)) {
+                            const row = {
+                                eventName,
+                                key: `${arrayField}[${index}].${key}`,
+                                value: obj[key],
+                                expectedType: null,
+                                receivedType: getValueType(obj[key]),
+                                validationStatus: 'Unexpected key in array object',
+                                fuzzySuggestion: buildFuzzySuggestion(
+                                    key,
+                                    expectedFieldNames,
+                                    options.useFuzzyMatching,
+                                    'Possible match in sheet'
+                                )
+                            };
+                            if (options.lineNumber) row.line_number = options.lineNumber;
+                            results.push(row);
+                        }
+                    });
+                });
+            });
+
+            return regularValidations;
+        }
+
+        function validateConditionalFields(payload, validation, options) {
+            const condition = validation.condition || {};
+            const ifField = normalizeKey(condition.if_field);
+            const thenField = normalizeKey(condition.then_field);
+            const ifValue = condition.if_value;
+            const thenType = condition.then_type;
+            if (!ifField || !thenField) return { valid: true, error: '' };
+
+            const normalizedPayload = {};
+            Object.entries(payload || {}).forEach(([k, v]) => {
+                normalizedPayload[normalizeKey(k)] = v;
+            });
+
+            if (ifField in normalizedPayload && normalizedPayload[ifField] === ifValue) {
+                if (!(thenField in normalizedPayload)) {
+                    return {
+                        valid: false,
+                        error: `Required field '${thenField}' is missing when '${ifField}' is '${ifValue}'`
+                    };
+                }
+                if (!validateValue(normalizedPayload[thenField], thenType, null, options.acceptIntAsFloat)) {
+                    return {
+                        valid: false,
+                        error: `Field '${thenField}' has invalid type when '${ifField}' is '${ifValue}'`
+                    };
+                }
+            }
+            return { valid: true, error: '' };
+        }
+
+        function validateRequiredFields(payload, validations, eventName) {
+            const requiredFields = validations.filter((v) => v.required).map((v) => v.key);
+            const normalizedPayload = {};
+            Object.entries(payload || {}).forEach(([k, v]) => {
+                normalizedPayload[normalizeKey(k)] = v;
+            });
+            const requiredResults = [];
+            requiredFields.forEach((field) => {
+                if (!(field in normalizedPayload)) {
+                    requiredResults.push({
+                        eventName,
+                        key: field,
+                        value: null,
+                        expectedType: (validations.find((v) => v.key === field) || {}).expectedType || null,
+                        receivedType: 'not present',
+                        validationStatus: 'Required field missing',
+                        comment: 'Required field is missing in the payload'
+                    });
+                }
+            });
+            return requiredResults;
+        }
+
+        function parseRegularLogs(txtContent) {
+            const eventPattern = /(?:Single Event|Event Payload|Web Event): (\{.*?\})(?=\s*(?:Single Event|Event Payload|Web Event):|$)/gs;
+            const parsedLogs = [];
+            const originalLogs = {};
+            let occurrence = 0;
+            for (const match of txtContent.matchAll(eventPattern)) {
+                const rawJson = match[1];
+                try {
+                    const parsed = JSON.parse(rawJson);
+                    let eventName = null;
+                    let payload = {};
+                    if (parsed.eventName) {
+                        eventName = String(parsed.eventName).toLowerCase();
+                        payload = parsed.payload || {};
+                    } else if (parsed.event) {
+                        eventName = String(parsed.event).toLowerCase();
+                        payload = parsed.data || {};
+                    }
+                    if (!eventName) continue;
+                    occurrence += 1;
+                    parsedLogs.push({
+                        eventName,
+                        payload,
+                        full_log: parsed,
+                        occurrence
+                    });
+                    originalLogs[eventName] = `Event Payload: ${rawJson}`;
+                } catch (error) {
+                    continue;
+                }
+            }
+            return { parsedLogs, originalLogs };
+        }
+
+        function parseWebsiteLogs(txtContent) {
+            const parsedLogs = [];
+            const originalLogs = {};
+            const lines = String(txtContent || '').split('\n');
+            lines.forEach((line, index) => {
+                const trimmed = line.trim();
+                if (!trimmed) return;
+                try {
+                    const entry = JSON.parse(trimmed);
+                    const eventNameRaw = entry.eventname;
+                    if (!eventNameRaw) return;
+                    const eventName = String(eventNameRaw).toLowerCase();
+                    const payload = entry.payload || {};
+                    parsedLogs.push({
+                        eventName,
+                        payload,
+                        line_number: index + 1,
+                        full_log: entry
+                    });
+                    originalLogs[eventName] = trimmed;
+                } catch (error) {
+                    return;
+                }
+            });
+            return { parsedLogs, originalLogs };
+        }
+
+        function parseWebsiteV2Logs(txtContent) {
+            const parsedLogs = [];
+            const originalLogs = {};
+            const systemFields = new Set(['event', 'url', 'purl', 'title', 'npv', 'sts', 'pts', 'timestamp']);
+
+            function pushLog(item, lineNumber, rawText) {
+                if (!item || typeof item !== 'object' || !item.event) return;
+                const eventName = String(item.event).toLowerCase();
+                const payload = {};
+                Object.entries(item).forEach(([k, v]) => {
+                    if (!systemFields.has(k)) payload[k] = v;
+                });
+                parsedLogs.push({
+                    eventName,
+                    payload,
+                    line_number: lineNumber,
+                    full_log: item
+                });
+                originalLogs[eventName] = rawText;
+            }
+
+            const content = String(txtContent || '').trim();
+            if (!content) return { parsedLogs, originalLogs };
+
+            try {
+                const parsed = JSON.parse(content);
+                if (Array.isArray(parsed)) {
+                    parsed.forEach((item, idx) => pushLog(item, idx + 1, JSON.stringify(item)));
+                    return { parsedLogs, originalLogs };
+                }
+                pushLog(parsed, 1, content);
+                if (parsedLogs.length > 0) return { parsedLogs, originalLogs };
+            } catch (error) {
+                // Fall back to multiline accumulation
+            }
+
+            const lines = content.split('\n');
+            let currentJson = '';
+            let lineNum = 0;
+            lines.forEach((line) => {
+                lineNum += 1;
+                const trimmed = line.trim();
+                if (!trimmed) return;
+                currentJson += trimmed;
+                try {
+                    const item = JSON.parse(currentJson);
+                    pushLog(item, lineNum, currentJson);
+                    currentJson = '';
+                } catch (error) {
+                    // keep accumulating until valid json
+                }
+            });
+
+            return { parsedLogs, originalLogs };
+        }
+
+        function buildEventLogsMap(parsedLogs) {
+            const eventLogs = {};
+            parsedLogs.forEach((entry, idx) => {
+                if (!eventLogs[entry.eventName]) eventLogs[entry.eventName] = [];
+                eventLogs[entry.eventName].push({
+                    occurrence: entry.occurrence || idx + 1,
+                    line_number: entry.line_number || null,
+                    payload: entry.payload || {},
+                    full_log: entry.full_log || {}
+                });
+            });
+            return eventLogs;
+        }
+
+        function appendRow(results, row, lineNumber) {
+            const out = { ...row };
+            if (lineNumber) out.line_number = lineNumber;
+            results.push(out);
+        }
+
+        function validatePayloadFields(payload, validations, eventName, results, options, lineNumber) {
+            const conditionalOptions = { acceptIntAsFloat: options.acceptIntAsFloat };
+
+            const requiredResults = validateRequiredFields(payload, validations, eventName);
+            requiredResults.forEach((r) => appendRow(results, r, lineNumber));
+
+            validations.forEach((validation) => {
+                const cond = validateConditionalFields(payload, validation, conditionalOptions);
+                if (!cond.valid) {
+                    appendRow(results, {
+                        eventName,
+                        key: validation.key,
+                        value: null,
+                        expectedType: validation.expectedType,
+                        receivedType: 'invalid',
+                        validationStatus: cond.error
+                    }, lineNumber);
+                }
+            });
+
+            const arrayFields = {};
+            Object.entries(payload || {}).forEach(([k, v]) => {
+                if (Array.isArray(v)) arrayFields[k] = v;
+            });
+
+            if (Object.keys(arrayFields).length > 0) {
+                const regularValidations = validateArrayOfObjects(payload, validations, eventName, results, {
+                    acceptIntAsFloat: options.acceptIntAsFloat,
+                    useFuzzyMatching: options.useFuzzyMatching,
+                    lineNumber
+                });
+                const normalizedPayload = {};
+                const payloadKeyMap = {};
+                Object.entries(payload || {}).forEach(([k, v]) => {
+                    if (!Array.isArray(v)) {
+                        normalizedPayload[normalizeKey(k)] = v;
+                    }
+                    payloadKeyMap[normalizeKey(k)] = k;
+                });
+                const expectedKeys = regularValidations.map((v) => v.key);
+                const expectedNormalized = new Set(regularValidations.map((v) => normalizeKey(v.key)));
+                Object.keys(normalizedPayload).forEach((extraKey) => {
+                    if (!expectedNormalized.has(extraKey)) {
+                        appendRow(results, {
+                            eventName,
+                            key: extraKey,
+                            value: normalizedPayload[extraKey],
+                            expectedType: 'EXTRA',
+                            receivedType: getValueType(normalizedPayload[extraKey]),
+                            validationStatus: 'Extra key present in the log',
+                            fuzzySuggestion: buildFuzzySuggestion(
+                                payloadKeyMap[extraKey] || extraKey,
+                                expectedKeys,
+                                options.useFuzzyMatching,
+                                'Possible match in sheet'
+                            )
+                        }, lineNumber);
+                    }
+                });
+
+                regularValidations.forEach((validation) => {
+                    const key = validation.key;
+                    const expectedType = validation.expectedType;
+                    if (!key || !expectedType) {
+                        appendRow(results, {
+                            eventName,
+                            key,
+                            value: null,
+                            expectedType,
+                            receivedType: 'unknown',
+                            validationStatus: 'Invalid CSV row'
+                        }, lineNumber);
+                        return;
+                    }
+                    const normalizedKey = normalizeKey(key);
+                    if (!(normalizedKey in normalizedPayload)) {
+                        appendRow(results, {
+                            eventName,
+                            key,
+                            value: null,
+                            expectedType,
+                            receivedType: 'not present',
+                            validationStatus: 'Payload not present in the log',
+                            fuzzySuggestion: buildFuzzySuggestion(
+                                key,
+                                Object.keys(payload || {}),
+                                options.useFuzzyMatching,
+                                'Possible match in logs'
+                            )
+                        }, lineNumber);
+                        return;
+                    }
+                    const value = normalizedPayload[normalizedKey];
+                    const validationResult = validateValue(value, expectedType, eventName, options.acceptIntAsFloat);
+                    const status = validationResult && validationResult !== 'Null value'
+                        ? 'Valid'
+                        : validationResult === 'Null value'
+                            ? 'Payload value is Empty'
+                            : 'Invalid/Wrong datatype/value';
+                    appendRow(results, {
+                        eventName,
+                        key,
+                        value: getFormattedValue(value, expectedType),
+                        expectedType,
+                        receivedType: getValueType(value),
+                        validationStatus: status
+                    }, lineNumber);
+                });
+                return;
+            }
+
+            const normalizedPayload = {};
+            const payloadKeyMap = {};
+            Object.entries(payload || {}).forEach(([k, v]) => {
+                normalizedPayload[normalizeKey(k)] = v;
+                payloadKeyMap[normalizeKey(k)] = k;
+            });
+            const expectedKeys = validations.map((v) => v.key);
+            const expectedNormalized = new Set(validations.map((v) => normalizeKey(v.key)));
+            Object.keys(normalizedPayload).forEach((extraKey) => {
+                if (!expectedNormalized.has(extraKey)) {
+                    appendRow(results, {
+                        eventName,
+                        key: extraKey,
+                        value: normalizedPayload[extraKey],
+                        expectedType: 'EXTRA',
+                        receivedType: getValueType(normalizedPayload[extraKey]),
+                        validationStatus: 'Extra key present in the log',
+                        fuzzySuggestion: buildFuzzySuggestion(
+                            payloadKeyMap[extraKey] || extraKey,
+                            expectedKeys,
+                            options.useFuzzyMatching,
+                            'Possible match in sheet'
+                        )
+                    }, lineNumber);
+                }
+            });
+
+            validations.forEach((validation) => {
+                const key = validation.key;
+                const expectedType = validation.expectedType;
+                if (!key || !expectedType) {
+                    appendRow(results, {
+                        eventName,
+                        key,
+                        value: null,
+                        expectedType,
+                        receivedType: 'unknown',
+                        validationStatus: 'Invalid CSV row'
+                    }, lineNumber);
+                    return;
+                }
+                const normalizedKey = normalizeKey(key);
+                if (!(normalizedKey in normalizedPayload)) {
+                    appendRow(results, {
+                        eventName,
+                        key,
+                        value: null,
+                        expectedType,
+                        receivedType: 'not present',
+                        validationStatus: 'Payload not present in the log',
+                        fuzzySuggestion: buildFuzzySuggestion(
+                            key,
+                            Object.keys(payload || {}),
+                            options.useFuzzyMatching,
+                            'Possible match in logs'
+                        )
+                    }, lineNumber);
+                    return;
+                }
+                const value = normalizedPayload[normalizedKey];
+                const validationResult = validateValue(value, expectedType, eventName, options.acceptIntAsFloat);
+                const status = validationResult && validationResult !== 'Null value'
+                    ? 'Valid'
+                    : validationResult === 'Null value'
+                        ? 'Payload value is Empty'
+                        : 'Invalid/Wrong datatype/value';
+                appendRow(results, {
+                    eventName,
+                    key,
+                    value: getFormattedValue(value, expectedType),
+                    expectedType,
+                    receivedType: getValueType(value),
+                    validationStatus: status
+                }, lineNumber);
+            });
+        }
+
+        function computeFullyValidEvents(results) {
+            const grouped = {};
+            results.forEach((r) => {
+                if (!grouped[r.eventName]) grouped[r.eventName] = [];
+                grouped[r.eventName].push(r.validationStatus);
+            });
+            return Object.entries(grouped)
+                .filter(([, statuses]) => statuses.every((s) => s === 'Valid'))
+                .map(([event]) => event);
+        }
+
+        function validateRegularMode(eventValidations, eventsWithoutPayload, parsedLogs, originalLogs, options) {
+            const eventPayloadMap = {};
+            const logEventCounts = {};
+            parsedLogs.forEach((log) => {
+                if (!log.eventName) return;
+                eventPayloadMap[log.eventName] = log.payload || {};
+                logEventCounts[log.eventName] = (logEventCounts[log.eventName] || 0) + 1;
+            });
+            const logEvents = new Set(Object.keys(eventPayloadMap));
+            const csvEvents = new Set(Object.keys(eventValidations));
+            const results = [];
+
+            Object.entries(eventValidations).forEach(([eventName, validations]) => {
+                const eventInLogs = eventName in eventPayloadMap;
+                const payload = eventPayloadMap[eventName] || {};
+                if (!eventInLogs) {
+                    results.push({
+                        eventName,
+                        key: 'EVENT_NAME',
+                        value: eventName,
+                        expectedType: 'event',
+                        receivedType: 'not present in logs',
+                        validationStatus: 'Event name not present in the logs',
+                        comment: `Event "${eventName}" from CSV was not found in the uploaded log file`,
+                        fuzzySuggestion: buildFuzzySuggestion(
+                            eventName,
+                            Array.from(logEvents),
+                            options.useFuzzyMatching,
+                            'Possible match in logs'
+                        )
+                    });
+                    return;
+                }
+
+                if (eventsWithoutPayload.has(eventName)) {
+                    const isEmpty = !payload || Object.keys(payload).length === 0;
+                    results.push({
+                        eventName,
+                        key: isEmpty ? 'No Payload in the sheet' : 'PAYLOAD',
+                        value: isEmpty ? 'No Payload in the sheet' : JSON.stringify(payload),
+                        expectedType: 'No payload expected',
+                        receivedType: isEmpty ? 'empty object' : getValueType(payload),
+                        validationStatus: isEmpty ? 'Valid' : 'Unexpected payload present',
+                        comment: isEmpty
+                            ? 'Event logged without payload as expected'
+                            : 'Event should not contain payload data'
+                    });
+                    return;
+                }
+
+                validatePayloadFields(payload, validations, eventName, results, options, null);
+            });
+
+            const extraEvents = Array.from(logEvents).filter((e) => !csvEvents.has(e));
+            extraEvents.forEach((extraEvent) => {
+                const payload = eventPayloadMap[extraEvent] || {};
+                results.push({
+                    eventName: extraEvent,
+                    key: 'EVENT_NAME',
+                    value: extraEvent,
+                    expectedType: 'event',
+                    receivedType: 'extra event in logs',
+                    validationStatus: 'Extra event present in logs',
+                    comment: `Event "${extraEvent}" found in logs but not defined in CSV validation rules`,
+                    fuzzySuggestion: buildFuzzySuggestion(
+                        extraEvent,
+                        Array.from(csvEvents),
+                        options.useFuzzyMatching,
+                        'Possible match in sheet'
+                    )
+                });
+                Object.entries(payload).forEach(([k, v]) => {
+                    results.push({
+                        eventName: extraEvent,
+                        key: k,
+                        value: v,
+                        expectedType: 'EXTRA_EVENT_FIELD',
+                        receivedType: getValueType(v),
+                        validationStatus: 'Field from extra event',
+                        comment: `Field from event "${extraEvent}" which is not defined in CSV validation rules`
+                    });
+                });
+            });
+
+            const fullyValidEvents = computeFullyValidEvents(results);
+            return {
+                results,
+                summary: {
+                    csv_events_count: csvEvents.size,
+                    log_events_count: logEvents.size,
+                    csv_events: Array.from(csvEvents),
+                    log_events: Array.from(logEvents),
+                    extra_events: extraEvents,
+                    log_event_counts: logEventCounts,
+                    log_event_occurrences_total: Object.values(logEventCounts).reduce((a, b) => a + b, 0),
+                    fully_valid_events_count: fullyValidEvents.length
+                },
+                fully_valid_events: fullyValidEvents,
+                original_logs: originalLogs,
+                event_logs: buildEventLogsMap(parsedLogs)
+            };
+        }
+
+        function validateMultiOccurrenceMode(eventValidations, eventsWithoutPayload, parsedLogs, originalLogs, options) {
+            const eventPayloadMap = {};
+            const logEventCounts = {};
+            parsedLogs.forEach((log) => {
+                if (!eventPayloadMap[log.eventName]) eventPayloadMap[log.eventName] = [];
+                eventPayloadMap[log.eventName].push({
+                    payload: log.payload || {},
+                    line_number: log.line_number || null,
+                    full_log: log.full_log || {}
+                });
+                logEventCounts[log.eventName] = (logEventCounts[log.eventName] || 0) + 1;
+            });
+
+            const logEvents = new Set(Object.keys(eventPayloadMap));
+            const csvEvents = new Set(Object.keys(eventValidations));
+            const results = [];
+
+            Object.entries(eventValidations).forEach(([eventName, validations]) => {
+                const entries = eventPayloadMap[eventName] || [];
+                if (entries.length === 0) {
+                    results.push({
+                        eventName,
+                        key: 'EVENT_NAME',
+                        value: eventName,
+                        expectedType: 'event',
+                        receivedType: 'not present in logs',
+                        validationStatus: 'Event name not present in the logs',
+                        comment: `Event "${eventName}" from CSV was not found in the uploaded log file`,
+                        fuzzySuggestion: buildFuzzySuggestion(
+                            eventName,
+                            Array.from(logEvents),
+                            options.useFuzzyMatching,
+                            'Possible match in logs'
+                        )
+                    });
+                    return;
+                }
+
+                if (eventsWithoutPayload.has(eventName)) {
+                    entries.forEach((entry) => {
+                        const isEmpty = !entry.payload || Object.keys(entry.payload).length === 0;
+                        results.push({
+                            eventName,
+                            key: isEmpty ? 'No Payload in the sheet' : 'PAYLOAD',
+                            value: isEmpty ? 'No Payload in the sheet' : JSON.stringify(entry.payload),
+                            expectedType: 'No payload expected',
+                            receivedType: isEmpty ? 'empty object' : getValueType(entry.payload),
+                            validationStatus: isEmpty ? 'Valid' : 'Unexpected payload present',
+                            comment: isEmpty
+                                ? 'Event logged without payload as expected'
+                                : 'Event should not contain payload data',
+                            line_number: entry.line_number
+                        });
+                    });
+                    return;
+                }
+
+                entries.forEach((entry) => {
+                    validatePayloadFields(
+                        entry.payload || {},
+                        validations,
+                        eventName,
+                        results,
+                        options,
+                        entry.line_number || null
+                    );
+                });
+            });
+
+            const extraEvents = Array.from(logEvents).filter((e) => !csvEvents.has(e));
+            extraEvents.forEach((extraEvent) => {
+                const entries = eventPayloadMap[extraEvent] || [];
+                entries.forEach((entry) => {
+                    results.push({
+                        eventName: extraEvent,
+                        key: 'EVENT_NAME',
+                        value: extraEvent,
+                        expectedType: 'event',
+                        receivedType: 'extra event in logs',
+                        validationStatus: 'Extra event present in logs',
+                        comment: `Event "${extraEvent}" found in logs but not defined in CSV validation rules`,
+                        line_number: entry.line_number,
+                        fuzzySuggestion: buildFuzzySuggestion(
+                            extraEvent,
+                            Array.from(csvEvents),
+                            options.useFuzzyMatching,
+                            'Possible match in sheet'
+                        )
+                    });
+                    Object.entries(entry.payload || {}).forEach(([k, v]) => {
+                        results.push({
+                            eventName: extraEvent,
+                            key: k,
+                            value: v,
+                            expectedType: 'EXTRA_EVENT_FIELD',
+                            receivedType: getValueType(v),
+                            validationStatus: 'Field from extra event',
+                            comment: `Field from event "${extraEvent}" which is not defined in CSV validation rules`,
+                            line_number: entry.line_number
+                        });
+                    });
+                });
+            });
+
+            const fullyValidEvents = computeFullyValidEvents(results);
+            return {
+                results,
+                summary: {
+                    csv_events_count: csvEvents.size,
+                    log_events_count: logEvents.size,
+                    csv_events: Array.from(csvEvents),
+                    log_events: Array.from(logEvents),
+                    extra_events: extraEvents,
+                    total_log_entries: parsedLogs.length,
+                    log_event_counts: logEventCounts,
+                    log_event_occurrences_total: Object.values(logEventCounts).reduce((a, b) => a + b, 0),
+                    fully_valid_events_count: fullyValidEvents.length
+                },
+                fully_valid_events: fullyValidEvents,
+                original_logs: originalLogs,
+                event_logs: buildEventLogsMap(parsedLogs)
+            };
+        }
+
+        function buildValidationResponse(mode, csvText, logText, options) {
+            const { eventValidations, eventsWithoutPayload } = parseCsvWithCaseNormalization(parseCsvRows(csvText));
+            let parsed = { parsedLogs: [], originalLogs: {} };
+            if (mode === 'regular') parsed = parseRegularLogs(logText);
+            if (mode === 'website') parsed = parseWebsiteLogs(logText);
+            if (mode === 'website-v2') parsed = parseWebsiteV2Logs(logText);
+            if (mode === 'regular') {
+                return validateRegularMode(eventValidations, eventsWithoutPayload, parsed.parsedLogs, parsed.originalLogs, options);
+            }
+            return validateMultiOccurrenceMode(eventValidations, eventsWithoutPayload, parsed.parsedLogs, parsed.originalLogs, options);
+        }
+
+        function applyFiltersLocal(results, filters, sortBy, sortOrder) {
+            let filtered = [...results];
+            Object.entries(filters || {}).forEach(([field, values]) => {
+                if (!values || !Array.isArray(values) || values.length === 0) return;
+                if (field === 'fuzzySuggestion') {
+                    const normalized = values.map((v) => String(v).trim().toLowerCase());
+                    const wantSheet = normalized.some((v) => v.includes('possible match in sheet'));
+                    const wantLogs = normalized.some((v) => v.includes('possible match in logs'));
+                    const wantNot = normalized.some((v) => v.includes('not exists'));
+                    filtered = filtered.filter((r) => {
+                        const text = String(r.fuzzySuggestion || '').toLowerCase();
+                        return (wantSheet && text.includes('possible match in sheet')) ||
+                            (wantLogs && text.includes('possible match in logs')) ||
+                            (wantNot && text.trim() === '');
+                    });
+                    return;
+                }
+                const expected = values.map((v) => String(v).toLowerCase());
+                filtered = filtered.filter((r) => expected.includes(String(r[field] || '').toLowerCase()));
+            });
+            if (sortBy) {
+                filtered.sort((a, b) => {
+                    const av = String(a[sortBy] || '').toLowerCase();
+                    const bv = String(b[sortBy] || '').toLowerCase();
+                    if (av < bv) return sortOrder === 'desc' ? 1 : -1;
+                    if (av > bv) return sortOrder === 'desc' ? -1 : 1;
+                    return 0;
+                });
+            }
+            return filtered;
+        }
+
+        function toCsvValue(value) {
+            if (value === null || value === undefined) return '';
+            const raw = typeof value === 'object' ? JSON.stringify(value) : String(value);
+            const escaped = raw.replace(/"/g, '""');
+            return /[",\n]/.test(escaped) ? `"${escaped}"` : escaped;
+        }
+
+        function buildDownloadResultsCsv(results) {
+            const header = ['eventName', 'key', 'value', 'expectedType', 'receivedType', 'validationStatus', 'comment', 'fuzzySuggestion'];
+            const rows = [header.join(',')];
+
+            results.forEach((result) => {
+                const clean = {
+                    eventName: result.eventName || '',
+                    key: result.key || '',
+                    value: result.value ?? '',
+                    expectedType: result.expectedType || '',
+                    receivedType: result.receivedType || '',
+                    validationStatus: result.validationStatus || '',
+                    comment: result.comment || '',
+                    fuzzySuggestion: result.fuzzySuggestion || ''
+                };
+
+                if (!clean.comment) {
+                    if (clean.validationStatus === 'Valid') {
+                        clean.comment = 'Field validation passed';
+                    } else if (clean.validationStatus === 'Invalid/Wrong datatype/value') {
+                        clean.comment = `Expected type: ${clean.expectedType}, Received type: ${clean.receivedType}`;
+                    } else if (clean.validationStatus === 'Payload value is Empty') {
+                        clean.comment = 'Field value is empty or null';
+                    } else if (clean.validationStatus === 'Extra key present in the log') {
+                        clean.comment = 'This is an EXTRA payload or there is a spelling mistake with the required payload';
+                    } else if (clean.validationStatus === 'Payload not present in the log') {
+                        clean.comment = 'Field is missing in the payload';
+                    } else if (clean.validationStatus === 'Event name not present in the logs') {
+                        clean.comment = `Event "${clean.eventName}" from CSV was not found in the uploaded log file`;
+                    } else if (clean.validationStatus === 'Extra event present in logs') {
+                        clean.comment = `Event "${clean.eventName}" found in logs but not defined in CSV validation rules`;
+                    } else if (clean.validationStatus === 'Field from extra event') {
+                        clean.comment = `Field from event "${clean.eventName}" which is not defined in CSV validation rules`;
+                    } else {
+                        clean.comment = clean.validationStatus;
+                    }
+                }
+
+                rows.push([
+                    toCsvValue(clean.eventName),
+                    toCsvValue(clean.key),
+                    toCsvValue(clean.value),
+                    toCsvValue(clean.expectedType),
+                    toCsvValue(clean.receivedType),
+                    toCsvValue(clean.validationStatus),
+                    toCsvValue(clean.comment),
+                    toCsvValue(clean.fuzzySuggestion)
+                ].join(','));
+            });
+
+            return rows.join('\n');
+        }
+
+        function buildValidEventsReportTsv(results, logsData) {
+            const groupedStatuses = {};
+            results.forEach((r) => {
+                if (!groupedStatuses[r.eventName]) groupedStatuses[r.eventName] = [];
+                groupedStatuses[r.eventName].push(r.validationStatus);
+            });
+            const fullyValidEvents = new Set(
+                Object.entries(groupedStatuses)
+                    .filter(([, statuses]) => statuses.every((status) => status === 'Valid'))
+                    .map(([event]) => event)
+            );
+
+            const eventGroups = {};
+            results.forEach((r) => {
+                if (!eventGroups[r.eventName]) eventGroups[r.eventName] = [];
+                eventGroups[r.eventName].push(r);
+            });
+
+            const rows = [['eventName', 'eventPayload', 'dataType', 'Logs'].join('\t')];
+            Object.keys(eventGroups).forEach((eventName) => {
+                const eventResults = eventGroups[eventName];
+                if (eventResults.length === 0) return;
+                const first = eventResults[0];
+                const logsContent = fullyValidEvents.has(eventName)
+                    ? (logsData[eventName] || '')
+                    : 'need to validate further';
+                rows.push([
+                    String(first.eventName || '').replace(/\t|\n/g, ' '),
+                    String(first.key || '').replace(/\t|\n/g, ' '),
+                    String(first.expectedType || '').replace(/\t|\n/g, ' '),
+                    String(logsContent || '').replace(/\t/g, '    ')
+                ].join('\t'));
+                eventResults.slice(1).forEach((result) => {
+                    rows.push([
+                        '',
+                        String(result.key || '').replace(/\t|\n/g, ' '),
+                        String(result.expectedType || '').replace(/\t|\n/g, ' '),
+                        ''
+                    ].join('\t'));
+                });
+            });
+            return rows.join('\n');
+        }
+
+        function triggerDownload(content, filename, mimeType) {
+            const blob = new Blob([content], { type: mimeType });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            a.remove();
+        }
 
         $('#dateRange').daterangepicker({
             autoUpdateInput: false,
@@ -601,107 +1697,95 @@
             }
         });
 
-        $('#uploadForm').on('submit', function(e) {
+        $('#uploadForm').on('submit', async function(e) {
             e.preventDefault();
-            const formData = new FormData();
-            const validationMode = $('input[name="validationMode"]:checked').val();
-            
-            // Get flexible float validation setting
-            const flexibleFloatValidation = $('#flexibleFloatValidation').is(':checked');
-            formData.append('flexible_float_validation', flexibleFloatValidation);
-            const fuzzyMatching = $('#fuzzyMatching').is(':checked');
-            formData.append('fuzzy_matching', fuzzyMatching);
+            try {
+                const validationMode = $('input[name="validationMode"]:checked').val();
+                const flexibleFloatValidation = $('#flexibleFloatValidation').is(':checked');
+                const fuzzyMatching = $('#fuzzyMatching').is(':checked');
 
-            let endpoint = '/upload';
-            if (validationMode === 'website') {
-                endpoint = '/validate-website-logs';
-            } else if (validationMode === 'website-v2') {
-                endpoint = '/validate-website-logs-v2';
-            }
-            const baseUrl = window.location.origin;
-            const fullUrl = baseUrl + endpoint;
-
-            // Always append CSV file
-            const csvFile = $('#csvFile')[0].files[0];
-            if (csvFile) {
-                formData.append('csv_file', csvFile);
-            }
-
-            // Check log input mode
-            const logInputMode = $('input[name="logInputMode"]:checked').val();
-            if (logInputMode === 'file') {
-                const txtFile = $('#txtFile')[0].files[0];
-                if (txtFile) {
-                    formData.append('txt_file', txtFile);
+                const csvFile = $('#csvFile')[0].files[0];
+                if (!csvFile) {
+                    alert('CSV file is required');
+                    return;
                 }
-            } else if (logInputMode === 'paste') {
-                const manualLog = $('#manualLogInput').val();
-                if (manualLog && manualLog.trim().length > 0) {
-                    formData.append('manual_log', manualLog);
-                }
-            }
+                const csvText = await readFileText(csvFile);
 
-            $.ajax({
-                url: fullUrl,
-                type: 'POST',
-                data: formData,
-                processData: false,
-                contentType: false,
-                success: function(response) {
-                    // ...existing code...
-                    currentResults = [];
-                    currentSummary = {
-                        csv_events_count: 0,
-                        log_events_count: 0,
-                        csv_events: [],
-                        log_events: [],
-                        log_event_counts: {},
-                        fully_valid_events_count: 0
-                    };
-                    window.originalLogs = {};
-                    window.eventLogs = {};
-                    // ...existing code...
-                    if (response && response.results && Array.isArray(response.results)) {
-                        currentResults = response.results;
-                        if (response.summary) {
-                            currentSummary = response.summary;
-                        }
-                        if (response.original_logs) {
-                            window.originalLogs = response.original_logs;
-                        }
-                        if (response.event_logs) {
-                            window.eventLogs = response.event_logs;
-                        }
-                        if (!currentSummary.log_event_counts) {
-                            currentSummary.log_event_counts = {};
-                        }
-                        if (!currentSummary.fully_valid_events_count && response.fully_valid_events) {
-                            currentSummary.fully_valid_events_count = response.fully_valid_events.length;
-                        }
-                    } else if (Array.isArray(response)) {
-                        currentResults = response;
-                    } else {
-                        console.error('Invalid response format:', response);
+                const logInputMode = $('input[name="logInputMode"]:checked').val();
+                let logText = '';
+                if (logInputMode === 'file') {
+                    const txtFile = $('#txtFile')[0].files[0];
+                    if (!txtFile) {
+                        alert('TXT file is required');
+                        return;
                     }
-                    updateEventSummary();
-                    updateFilters();
-                    displayResults(currentResults);
-                    $('#filterSection').show();
-                    if (response.fully_valid_events && response.fully_valid_events.length > 0) {
-                        $('#fullyValidEventsList').empty();
-                        response.fully_valid_events.forEach(function(eventName) {
-                            $('#fullyValidEventsList').append('<li>' + eventName + '</li>');
-                        });
-                        $('#fullyValidEventsSection').show();
-                    } else {
-                        $('#fullyValidEventsSection').hide();
+                    logText = await readFileText(txtFile);
+                } else {
+                    logText = $('#manualLogInput').val() || '';
+                    if (!logText.trim()) {
+                        alert('Manual log input is required');
+                        return;
                     }
-                },
-                error: function(xhr) {
-                    console.error('Upload error:', xhr);
-                    alert('Error uploading files: ' + xhr.responseText);
                 }
-            });
+
+                const response = buildValidationResponse(validationMode, csvText, logText, {
+                    acceptIntAsFloat: flexibleFloatValidation,
+                    useFuzzyMatching: fuzzyMatching
+                });
+
+                currentResults = [];
+                currentSummary = {
+                    csv_events_count: 0,
+                    log_events_count: 0,
+                    csv_events: [],
+                    log_events: [],
+                    log_event_counts: {},
+                    fully_valid_events_count: 0
+                };
+                window.originalLogs = {};
+                window.eventLogs = {};
+
+                if (response && response.results && Array.isArray(response.results)) {
+                    currentResults = response.results;
+                    if (response.summary) {
+                        currentSummary = response.summary;
+                    }
+                    if (response.original_logs) {
+                        window.originalLogs = response.original_logs;
+                    }
+                    if (response.event_logs) {
+                        window.eventLogs = response.event_logs;
+                    }
+                    if (!currentSummary.log_event_counts) {
+                        currentSummary.log_event_counts = {};
+                    }
+                    if (!currentSummary.fully_valid_events_count && response.fully_valid_events) {
+                        currentSummary.fully_valid_events_count = response.fully_valid_events.length;
+                    }
+                } else if (Array.isArray(response)) {
+                    currentResults = response;
+                } else {
+                    console.error('Invalid response format:', response);
+                }
+
+                window.filteredResults = [...currentResults];
+                updateEventSummary();
+                updateFilters();
+                displayResults(currentResults);
+                $('#filterSection').show();
+                if (response.fully_valid_events && response.fully_valid_events.length > 0) {
+                    $('#fullyValidEventsList').empty();
+                    response.fully_valid_events.forEach(function(eventName) {
+                        $('#fullyValidEventsList').append('<li>' + eventName + '</li>');
+                    });
+                    $('#fullyValidEventsSection').show();
+                } else {
+                    $('#fullyValidEventsSection').hide();
+                }
+            } catch (error) {
+                console.error('Local validation error:', error);
+                alert(`Error validating files: ${error.message}`);
+            }
         });
 
         // Webhook functionality removed
@@ -711,10 +1795,13 @@
         $('.download-btn').click(function() {
             const mode = $(this).data('mode');
             const multiline = $(this).data('multiline') || false;
-            let url = `/download_sample_log/${mode}`;
-            if (mode === 'website-v2' && multiline) {
-                url += '?multiline=true';
+            let filename = 'samplelog_android.txt';
+            if (mode === 'website') {
+                filename = 'sample_website_logs.txt';
+            } else if (mode === 'website-v2') {
+                filename = multiline ? 'sample_website_logs_v2_multiline.txt' : 'sample_website_logs_v2.txt';
             }
+            const url = `/${filename}`;
 
             // Show loading state
             $(this).prop('disabled', true);
@@ -731,12 +1818,6 @@
                 .then(blob => {
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
-                    let filename = 'sample_log.txt';
-                    if (mode === 'website') {
-                        filename = 'sample_website_logs.txt';
-                    } else if (mode === 'website-v2') {
-                        filename = multiline ? 'sample_website_logs_v2_multiline.txt' : 'sample_website_logs_v2.txt';
-                    }
                     a.href = url;
                     a.download = filename;
                     document.body.appendChild(a);
@@ -905,32 +1986,14 @@
                 receivedType: activeFilters.receivedType,
                 fuzzySuggestion: activeFilters.fuzzySuggestion
             };
-
-            // Get the current domain to ensure we're hitting the right server
-            const baseUrl = window.location.origin;
-            const fullUrl = baseUrl + '/filter';
-
-            console.log('Making filter request to:', fullUrl);
-
-            $.ajax({
-                url: fullUrl,
-                type: 'POST',
-                data: JSON.stringify({
-                    results: currentResults,
-                    filters: filters,
-                    sort_by: currentSort.field,
-                    sort_order: currentSort.order
-                }),
-                contentType: 'application/json',
-                success: function(response) {
-                    displayResults(response);
-                    window.filteredResults = response;
-                },
-                error: function(xhr) {
-                    console.error('Filter error:', xhr);
-                    alert('Error applying filters: ' + xhr.responseText);
-                }
-            });
+            const response = applyFiltersLocal(
+                currentResults,
+                filters,
+                currentSort.field,
+                currentSort.order
+            );
+            displayResults(response);
+            window.filteredResults = response;
         }
 
         // Handle select all checkboxes
@@ -958,74 +2021,15 @@
         $('#downloadResults').click(function() {
             // Use filtered results if available, otherwise use all results
             const resultsToDownload = window.filteredResults || currentResults;
-            
-            // Get the current domain to ensure we're hitting the right server
-            const baseUrl = window.location.origin;
-            const fullUrl = baseUrl + '/download';
-            
-            console.log('Making download request to:', fullUrl);
-            
-            $.ajax({
-                url: fullUrl,
-                type: 'POST',
-                data: JSON.stringify({ results: resultsToDownload }),
-                contentType: 'application/json',
-                xhrFields: {
-                    responseType: 'blob'
-                },
-                success: function(blob) {
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'validation_results.csv';
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    a.remove();
-                },
-                error: function(xhr) {
-                    console.error('Download error:', xhr);
-                    alert('Error downloading results: ' + xhr.responseText);
-                }
-            });
+            const csvContent = buildDownloadResultsCsv(resultsToDownload);
+            triggerDownload(csvContent, 'validation_results.csv', 'text/csv;charset=utf-8');
         });
 
         $('#downloadValidEvents').click(function() {
             // Use filtered results if available, otherwise use all results
             const resultsToDownload = window.filteredResults || currentResults;
-            
-            // Get the current domain to ensure we're hitting the right server
-            const baseUrl = window.location.origin;
-            const fullUrl = baseUrl + '/download-valid-events';
-            
-            console.log('Making download valid events request to:', fullUrl);
-            
-            $.ajax({
-                url: fullUrl,
-                type: 'POST',
-                data: JSON.stringify({ 
-                    results: resultsToDownload,
-                    logs_data: window.originalLogs || {}
-                }),
-                contentType: 'application/json',
-                xhrFields: {
-                    responseType: 'blob'
-                },
-                success: function(blob) {
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'valid_events_report.csv';
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    a.remove();
-                },
-                error: function(xhr) {
-                    console.error('Download valid events error:', xhr);
-                    alert('Error downloading valid events: ' + xhr.responseText);
-                }
-            });
+            const tsvContent = buildValidEventsReportTsv(resultsToDownload, window.originalLogs || {});
+            triggerDownload(tsvContent, 'valid_events_report.csv', 'text/tab-separated-values;charset=utf-8');
         });
 
         function displayResults(results) {
@@ -1111,6 +2115,7 @@
         });
 
         function getStatusClass(status) {
+            if (!status) return '';
             if (status.startsWith('Valid')) return 'status-valid';
             if (status.startsWith('Invalid/Wrong datatype/value')) return 'status-invalid';
             if (status.startsWith('Payload value is Empty')) return 'status-empty';
@@ -1134,7 +2139,7 @@
             applyFilters();
         });
 
-        $('#eventNameFilter, #statusFilter, #expectedTypeFilter, #receivedTypeFilter').change(applyFilters);
+        $('#eventNameFilter, #statusFilter, #expectedTypeFilter, #receivedTypeFilter, #fuzzySuggestionFilter').change(applyFilters);
 
     </script>
 </body>
